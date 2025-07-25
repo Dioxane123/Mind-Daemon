@@ -1,0 +1,31 @@
+[project]
+name = "mind-daemon"
+version = "0.1.0"
+description = "BCI-powered focus and productivity system for ADHD patients"
+readme = "README.md"
+authors = [
+    { name = "Aster", email = "aster@hdu.edu.cn" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "websocket-client",
+    "python-dispatch",
+    "matplotlib",
+    "numpy>=2.3.1",
+    "pandas>=2.3.1",
+    "python-dispatch",
+    "fastmcp",
+    "openai",
+    "pyqt6",
+]
+
+[project.scripts]
+mind-daemon = "mind_daemon:main"
+
+[build-system]
+requires = ["uv_build>=0.8.2,<0.9.0"]
+build-backend = "uv_build"
+
+[pip]
+# 设置主要的索引源
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
