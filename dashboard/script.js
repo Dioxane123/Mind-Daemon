@@ -4,7 +4,9 @@ class MindDaemonDashboard {
     constructor() {
         this.currentTab = 'basic';
         this.trendsChart = null;
+        this.stateHistoryChart = null;
         this.socket = null;
+        this.stateHistory = []; // 存储状态历史
         this.init();
     }
 
@@ -13,6 +15,7 @@ class MindDaemonDashboard {
         this.setupEventListeners();
         this.loadSampleData();
         this.initChart();
+        this.initStateHistoryChart();
         this.connectSocket();
         
         // Update datetime every second
@@ -43,11 +46,11 @@ class MindDaemonDashboard {
                 }
             };
             
-            this.socket.onerror = (error) => {
-                console.error('WebSocket错误:', error);
-                // 如果WebSocket连接失败，回退到随机数据模式
-                this.startRandomDataFallback();
-            };
+            // this.socket.onerror = (error) => {
+            //     console.error('WebSocket错误:', error);
+            //     // 如果WebSocket连接失败，回退到随机数据模式
+            //     this.startRandomDataFallback();
+            // };
             
             this.socket.onclose = () => {
                 console.log('WebSocket连接已关闭');
@@ -70,11 +73,23 @@ class MindDaemonDashboard {
     }
 
     updateBasicDataFromSocket(data) {
-        // 从socket接收的数据更新基本数据
-        if (data && data.light && data.music && data.curtain && data.Scores) {
-            this.updateBasicData(data);
-            // 同时更新图表
-            this.updateChart(data.Scores);
+        // 从socket接收的数据更新基本数据和高级数据
+        if (data && data.basic) {
+            // 更新基础数据
+            if (data.basic.light && data.basic.music && data.basic.curtain && data.basic.Scores) {
+                this.updateBasicData(data.basic);
+                // 同时更新图表
+                this.updateChart(data.basic.Scores);
+            }
+        }
+        
+        if (data && data.advanced) {
+            // 更新高级数据
+            if (data.advanced.State && data.advanced.Summary && data.advanced.Action) {
+                this.updateAdvancedData(data.advanced);
+                // 更新状态历史图表
+                this.updateStateHistory(data.advanced.State);
+            }
         }
     }
 
@@ -389,6 +404,58 @@ class MindDaemonDashboard {
         this.initChartData();
     }
 
+    initStateHistoryChart() {
+        const ctx = document.getElementById('stateHistoryChart').getContext('2d');
+        
+        this.stateHistoryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '精神状态',
+                    data: [],
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#8b5cf6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#cbd5e1'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            color: '#475569'
+                        }
+                    },
+                    y: {
+                        type: 'category',
+                        labels: ['RELAXED', 'NEUTRAL', 'FOCUSED', 'STRESSED', 'DISTRACTED', 'FATIGUED'],
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            color: '#475569'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     initChartData() {
         const now = new Date();
         for (let i = 9; i >= 0; i--) {
@@ -433,6 +500,27 @@ class MindDaemonDashboard {
         this.trendsChart.data.datasets[3].data.push(scores.St);
 
         this.trendsChart.update('none'); // Smooth update without animation
+    }
+
+    updateStateHistory(currentState) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+
+        // Remove old data if we have more than 20 points
+        if (this.stateHistoryChart.data.labels.length >= 20) {
+            this.stateHistoryChart.data.labels.shift();
+            this.stateHistoryChart.data.datasets[0].data.shift();
+        }
+
+        // Add new data
+        this.stateHistoryChart.data.labels.push(timeStr);
+        this.stateHistoryChart.data.datasets[0].data.push(currentState);
+
+        this.stateHistoryChart.update('none'); // Smooth update without animation
     }
 }
 

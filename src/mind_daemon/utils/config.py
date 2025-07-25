@@ -1,154 +1,170 @@
-"""Configuration management for Mind Daemon using environment variables."""
+"""
+Mind Daemon Configuration Management
+
+Handles loading and managing configuration from .env files and environment variables.
+"""
 
 import os
-from typing import Optional, Union
+from typing import Dict, Any, Optional, Union
 from pathlib import Path
-from dotenv import load_dotenv
+import logging
 
-# Load environment variables from .env file
-project_root = Path(__file__).parent.parent.parent.parent
-env_file = project_root / '.env'
+try:
+    from dotenv import load_dotenv
+    HAS_DOTENV = True
+except ImportError:
+    HAS_DOTENV = False
+    logging.warning("python-dotenv not installed. Environment variables will only be read from system.")
 
-if env_file.exists():
-    load_dotenv(env_file)
-    print(f"✅ 已加载配置文件: {env_file}")
-else:
-    print(f"⚠️  配置文件不存在: {env_file}")
+logger = logging.getLogger(__name__)
 
-class MindDaemonConfig:
-    """Configuration manager for Mind Daemon system."""
+class Config:
+    """Configuration management for Mind Daemon"""
     
-    # ===== Emotiv BCI 配置 =====
-    @property
-    def emotiv_client_id(self) -> str:
-        return os.getenv('EMOTIV_CLIENT_ID', '')
+    def __init__(self, env_file: Optional[str] = None):
+        """
+        Initialize configuration
+        
+        Args:
+            env_file: Path to .env file. If None, searches for .env in project root.
+        """
+        self._config: Dict[str, Any] = {}
+        self._load_env_file(env_file)
+        self._setup_defaults()
     
-    @property
-    def emotiv_client_secret(self) -> str:
-        return os.getenv('EMOTIV_CLIENT_SECRET', '')
+    def _load_env_file(self, env_file: Optional[str] = None):
+        """Load environment variables from .env file"""
+        if not HAS_DOTENV:
+            logger.warning("python-dotenv not available, skipping .env file loading")
+            return
+        
+        if env_file is None:
+            # Search for .env file in project root
+            project_root = Path(__file__).parent.parent.parent.parent
+            env_file = project_root / ".env"
+        
+        env_path = Path(env_file)
+        if env_path.exists():
+            load_dotenv(env_path)
+            logger.info(f"Loaded environment from {env_path}")
+        else:
+            logger.info(f".env file not found at {env_path}, using system environment variables only")
     
-    # ===== MiniMax LLM 配置 =====
-    @property
-    def minimax_api_key(self) -> str:
-        return os.getenv('MINIMAX_API_KEY', '')
+    def _setup_defaults(self):
+        """Setup default configuration values"""
+        # Get project root directory
+        project_root = Path(__file__).parent.parent.parent.parent
+        
+        self._defaults = {
+            # BCI Configuration
+            'EMOTIV_CLIENT_ID': '',
+            'EMOTIV_CLIENT_SECRET': '',
+            'BCI_DEVICE_TYPE': 'emotiv',
+            'BCI_SAMPLING_RATE': 128,
+            'BCI_CHANNELS': 14,
+            
+            # LLM Configuration
+            'MINIMAX_API_KEY': '',
+            'MINIMAX_BASE_URL': 'https://api.minimax.chat/v1/text/chatcompletion_v2',
+            'MINIMAX_MODEL': 'abab6.5s-chat',
+            'OPENAI_API_KEY': '',
+            'OPENAI_MODEL': 'gpt-3.5-turbo',
+            
+            # System Paths
+            'MUSIC_DIR': str(project_root / 'music'),
+            'WINDOW_PY_PATH': str(project_root / 'src' / 'mind_daemon' / 'peripheral' / 'window.py'),
+            'DATA_DIR': str(project_root / 'data'),
+            
+            # Server Configuration
+            'WEBSOCKET_HOST': 'localhost',
+            'WEBSOCKET_PORT': 8889,
+            'TCP_HOST': 'localhost',
+            'TCP_PORT': 8888,
+            
+            # System Behavior
+            'STATE_ANALYSIS_INTERVAL': 1.0,
+            'LLM_ANALYSIS_INTERVAL': 300.0,
+            'ENVIRONMENT_CONTROL_INTERVAL': 10.0,
+            
+            # Thresholds
+            'ATTENTION_THRESHOLD': 0.6,
+            'STRESS_THRESHOLD': 0.7,
+            'FATIGUE_THRESHOLD': 0.8,
+            'RELAXATION_THRESHOLD': 0.5,
+            
+            # Music Player
+            'MUSIC_VOLUME': 0.6,
+            'MUSIC_SWITCH_COOLDOWN': 60,
+            
+            # Halo Controller
+            'HALO_ACTIVATION_COOLDOWN': 30,
+            'HALO_COLOR_CHANGE_COOLDOWN': 15,
+            
+            # Development
+            'LOG_LEVEL': 'INFO',
+            'DEV_MODE': False,
+            'VERBOSE': False,
+            'ENABLE_DATA_LOGGING': True,
+            'ROLLING_WINDOW_SIZE': 100
+        }
     
-    @property
-    def minimax_base_url(self) -> str:
-        return os.getenv('MINIMAX_BASE_URL', 'https://api.minimax.chat/v1/text/chatcompletion_v2')
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get configuration value"""
+        # First check if already cached
+        if key in self._config:
+            return self._config[key]
+        
+        # Then check environment variables
+        env_value = os.getenv(key)
+        if env_value is not None:
+            # Convert string values to appropriate types
+            value = self._convert_type(env_value, key)
+            self._config[key] = value
+            return value
+        
+        # Then check defaults
+        if key in self._defaults:
+            value = self._defaults[key]
+            self._config[key] = value
+            return value
+        
+        # Finally return provided default
+        return default
     
-    # ===== 系统配置 =====
-    @property
-    def user_id(self) -> str:
-        return os.getenv('USER_ID', 'default_user')
+    def _convert_type(self, value: str, key: str) -> Any:
+        """Convert string environment variable to appropriate type"""
+        # Boolean values
+        if key in ['DEV_MODE', 'VERBOSE', 'ENABLE_DATA_LOGGING']:
+            return value.lower() in ('true', '1', 'yes', 'on')
+        
+        # Integer values
+        if key in ['BCI_SAMPLING_RATE', 'BCI_CHANNELS', 'WEBSOCKET_PORT', 'TCP_PORT', 
+                   'MUSIC_SWITCH_COOLDOWN', 'HALO_ACTIVATION_COOLDOWN', 'HALO_COLOR_CHANGE_COOLDOWN',
+                   'ROLLING_WINDOW_SIZE']:
+            try:
+                return int(value)
+            except ValueError:
+                logger.warning(f"Invalid integer value for {key}: {value}")
+                return self._defaults.get(key, 0)
+        
+        # Float values
+        if key in ['STATE_ANALYSIS_INTERVAL', 'LLM_ANALYSIS_INTERVAL', 'ENVIRONMENT_CONTROL_INTERVAL',
+                   'ATTENTION_THRESHOLD', 'STRESS_THRESHOLD', 'FATIGUE_THRESHOLD', 'RELAXATION_THRESHOLD',
+                   'MUSIC_VOLUME']:
+            try:
+                return float(value)
+            except ValueError:
+                logger.warning(f"Invalid float value for {key}: {value}")
+                return self._defaults.get(key, 0.0)
+        
+        # String values (default)
+        return value
     
-    @property
-    def csv_output_dir(self) -> str:
-        return os.getenv('CSV_OUTPUT_DIR', 'bci_data')
-    
-    @property
-    def music_dir(self) -> str:
-        music_dir = os.getenv('MUSIC_DIR', 'music')
-        # Convert to absolute path if relative
-        if not os.path.isabs(music_dir):
-            return str(project_root / music_dir)
-        return music_dir
-    
-    # ===== 调试配置 =====
-    @property
-    def debug_mode(self) -> bool:
-        return os.getenv('DEBUG_MODE', 'false').lower() == 'true'
-    
-    @property
-    def log_level(self) -> str:
-        return os.getenv('LOG_LEVEL', 'INFO').upper()
-    
-    # ===== BCI 分析参数 =====
-    @property
-    def bci_window_size(self) -> int:
-        return int(os.getenv('BCI_WINDOW_SIZE', '100'))
-    
-    @property
-    def bci_analysis_interval(self) -> float:
-        return float(os.getenv('BCI_ANALYSIS_INTERVAL', '1.0'))
-    
-    @property
-    def action_cooldown(self) -> float:
-        return float(os.getenv('ACTION_COOLDOWN', '30.0'))
-    
-    # ===== 外设控制配置 =====
-    @property
-    def halo_duration(self) -> float:
-        return float(os.getenv('HALO_DURATION', '5.0'))
-    
-    @property
-    def music_fade_duration(self) -> float:
-        return float(os.getenv('MUSIC_FADE_DURATION', '10.0'))
-    
-    @property
-    def default_volume(self) -> float:
-        return float(os.getenv('DEFAULT_VOLUME', '0.5'))
-    
-    # ===== 辅助方法 =====
-    def has_emotiv_credentials(self) -> bool:
-        """Check if Emotiv credentials are provided."""
-        return bool(self.emotiv_client_id and self.emotiv_client_secret)
-    
-    def has_minimax_api(self) -> bool:
-        """Check if MiniMax API key is provided."""
-        return bool(self.minimax_api_key)
-    
-    def get_absolute_path(self, path: str) -> str:
-        """Convert relative path to absolute path based on project root."""
-        if os.path.isabs(path):
-            return path
-        return str(project_root / path)
-    
-    def print_config_summary(self):
-        """Print configuration summary (without sensitive data)."""
-        print("🔧 Mind Daemon 配置摘要:")
-        print(f"  Emotiv BCI: {'✅ 已配置' if self.has_emotiv_credentials() else '❌ 未配置'}")
-        print(f"  MiniMax LLM: {'✅ 已配置' if self.has_minimax_api() else '❌ 未配置'}")
-        print(f"  用户ID: {self.user_id}")
-        print(f"  音乐目录: {self.music_dir}")
-        print(f"  CSV输出: {self.csv_output_dir}")
-        print(f"  调试模式: {'开启' if self.debug_mode else '关闭'}")
-        print(f"  日志级别: {self.log_level}")
+    def get_all(self) -> Dict[str, Any]:
+        """Get all configuration values"""
+        result = self._defaults.copy()
+        result.update(self._config)
+        return result
 
-# 全局配置实例
-config = MindDaemonConfig()
-
-def get_config() -> MindDaemonConfig:
-    """Get the global configuration instance."""
-    return config
-
-# 兼容性函数
-def get_emotiv_credentials() -> tuple[str, str]:
-    """Get Emotiv credentials as a tuple."""
-    return config.emotiv_client_id, config.emotiv_client_secret
-
-def get_minimax_api_key() -> str:
-    """Get MiniMax API key."""
-    return config.minimax_api_key
-
-# 测试配置
-if __name__ == '__main__':
-    print("🧠 Mind Daemon 配置测试")
-    print("=" * 40)
-    
-    config.print_config_summary()
-    
-    print(f"\n📂 路径信息:")
-    print(f"  项目根目录: {project_root}")
-    print(f"  .env文件: {env_file}")
-    print(f"  音乐目录: {config.music_dir}")
-    print(f"  CSV目录: {config.get_absolute_path(config.csv_output_dir)}")
-    
-    if config.has_emotiv_credentials():
-        print(f"\n🔌 Emotiv配置:")
-        print(f"  Client ID: {config.emotiv_client_id[:20]}...")
-        print(f"  Client Secret: {config.emotiv_client_secret[:20]}...")
-    
-    if config.has_minimax_api():
-        print(f"\n🤖 MiniMax配置:")
-        print(f"  API Key: {config.minimax_api_key[:50]}...")
-        print(f"  Base URL: {config.minimax_base_url}")
+# Global configuration instance
+config = Config()

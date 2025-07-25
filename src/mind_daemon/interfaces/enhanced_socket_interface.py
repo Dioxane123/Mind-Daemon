@@ -21,9 +21,9 @@ from datetime import datetime, timedelta
 import logging
 
 # 导入其他模块
-from state_analyzer import StateAnalyzer, MentalState, StateAnalysisResult
-from llm_analyzer import LLMAnalyzer, LLMAnalysisResult
-from environment_agent import EnvironmentAgent
+from ..analyzers.state_analyzer import StateAnalyzer, MentalState, StateAnalysisResult
+from ..analyzers.llm_analyzer import LLMAnalyzer, LLMAnalysisResult
+from ..environment.environment_agent import EnvironmentAgent
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)

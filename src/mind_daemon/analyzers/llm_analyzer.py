@@ -68,7 +68,19 @@ class LLMAnalyzer:
             llm_config: LLM配置，包含API endpoint, key等
         """
         if data_dir is None:
-            data_dir = os.path.join(os.path.dirname(__file__), 'append_logs')
+            # 查找项目根目录下的append_logs
+            current_dir = os.path.dirname(__file__)
+            # 向上查找，直到找到包含append_logs的目录
+            project_root = current_dir
+            while project_root != os.path.dirname(project_root):
+                append_logs_path = os.path.join(project_root, 'append_logs')
+                if os.path.exists(append_logs_path):
+                    data_dir = append_logs_path
+                    break
+                project_root = os.path.dirname(project_root)
+            else:
+                # 如果没找到，使用默认位置
+                data_dir = os.path.join(os.path.dirname(__file__), 'append_logs')
         
         self.data_dir = data_dir
         self.llm_config = llm_config or {}
