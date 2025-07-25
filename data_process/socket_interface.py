@@ -7,8 +7,10 @@ import socket
 import json
 import threading
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Set
 from collections import deque
+import asyncio
+import websockets
 
 from env_state import env_state
 from sub_data_store import AveragingLogger
@@ -74,11 +76,12 @@ class ScoreCalculator:
 
 class SocketBasicParamsLogger(AveragingLogger):
     """
-    Enhanced logger that integrates score calculation and socket transmission
+    Enhanced logger that integrates score calculation and socket/websocket transmission
     """
     
     def __init__(self, app_client_id, app_client_secret, 
                  socket_host="localhost", socket_port=8888, 
+                 websocket_host="localhost", websocket_port=8889,
                  transmission_interval=1.0, **kwargs):
         # Initialize with 1-second interval for score calculation
         super().__init__(app_client_id, app_client_secret, 
@@ -87,6 +90,8 @@ class SocketBasicParamsLogger(AveragingLogger):
         
         self.socket_host = socket_host
         self.socket_port = socket_port
+        self.websocket_host = websocket_host
+        self.websocket_port = websocket_port
         self.transmission_interval = transmission_interval
         
         # Score calculator
@@ -97,6 +102,12 @@ class SocketBasicParamsLogger(AveragingLogger):
         self.socket_connected = False
         self.socket_lock = threading.Lock()
         
+        # WebSocket setup
+        self.websocket_clients: Set[websockets.WebSocketServerProtocol] = set()
+        self.websocket_server = None
+        self.websocket_loop = None
+        self.websocket_thread = None
+        
         # Transmission thread
         self.transmission_stop_event = threading.Event()
         self.transmission_thread = threading.Thread(target=self._transmission_loop)
@@ -104,6 +115,9 @@ class SocketBasicParamsLogger(AveragingLogger):
         
         # Initialize socket connection
         self._init_socket()
+        
+        # Start WebSocket server
+        self._start_websocket_server()
         
         # Start transmission
         self.transmission_thread.start()
@@ -171,8 +185,70 @@ class SocketBasicParamsLogger(AveragingLogger):
                 print(f"Error in transmission loop: {e}")
                 time.sleep(1)
     
+    def _start_websocket_server(self):
+        """Start WebSocket server in a separate thread"""
+        self.websocket_thread = threading.Thread(target=self._run_websocket_server)
+        self.websocket_thread.daemon = True
+        self.websocket_thread.start()
+    
+    def _run_websocket_server(self):
+        """Run WebSocket server"""
+        try:
+            self.websocket_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.websocket_loop)
+            
+            start_server = websockets.serve(
+                self._websocket_handler,
+                self.websocket_host,
+                self.websocket_port
+            )
+            
+            self.websocket_loop.run_until_complete(start_server)
+            print(f"WebSocket server started on {self.websocket_host}:{self.websocket_port}")
+            self.websocket_loop.run_forever()
+            
+        except Exception as e:
+            print(f"WebSocket server error: {e}")
+    
+    async def _websocket_handler(self, websocket, path):
+        """Handle WebSocket connections"""
+        self.websocket_clients.add(websocket)
+        print(f"WebSocket client connected: {websocket.remote_address}")
+        
+        try:
+            async for message in websocket:
+                # Handle messages from client if needed
+                print(f"Received from WebSocket client: {message}")
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        finally:
+            self.websocket_clients.discard(websocket)
+            print(f"WebSocket client disconnected: {websocket.remote_address}")
+    
+    async def _broadcast_to_websockets(self, params: Dict[str, Any]):
+        """Broadcast data to all WebSocket clients"""
+        if not self.websocket_clients:
+            return
+        
+        json_data = json.dumps(params)
+        disconnected_clients = set()
+        
+        for client in self.websocket_clients.copy():
+            try:
+                await client.send(json_data)
+            except (websockets.exceptions.ConnectionClosed, 
+                    websockets.exceptions.ConnectionClosedError):
+                disconnected_clients.add(client)
+            except Exception as e:
+                print(f"WebSocket send error to {client.remote_address}: {e}")
+                disconnected_clients.add(client)
+        
+        # Remove disconnected clients
+        self.websocket_clients -= disconnected_clients
+
     def _send_basic_params(self, params: Dict[str, Any]):
-        """Send basic parameters via socket"""
+        """Send basic parameters via socket and WebSocket"""
+        # Send via TCP socket
         with self.socket_lock:
             if not self.socket_connected:
                 self._reconnect_socket()
@@ -183,19 +259,41 @@ class SocketBasicParamsLogger(AveragingLogger):
                     json_data = json.dumps(params)
                     message = f"{json_data}\n"
                     self.socket.sendall(message.encode('utf-8'))
-                    print(f"Sent: {json_data}")
+                    print(f"Sent via TCP: {json_data}")
                 except Exception as e:
                     print(f"Socket send error: {e}")
                     self.socket_connected = False
+        
+        # Send via WebSocket
+        if self.websocket_loop and self.websocket_clients:
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    self._broadcast_to_websockets(params), 
+                    self.websocket_loop
+                )
+                future.result(timeout=1)  # Wait max 1 second
+                print(f"Sent via WebSocket to {len(self.websocket_clients)} clients")
+            except Exception as e:
+                print(f"WebSocket broadcast error: {e}")
     
     def close(self):
-        """Override close to handle socket and transmission thread"""
+        """Override close to handle socket, websocket and transmission thread"""
         print("Closing socket interface...")
         
         # Stop transmission thread
         self.transmission_stop_event.set()
         if self.transmission_thread.is_alive():
             self.transmission_thread.join(timeout=2)
+        
+        # Close WebSocket server
+        if self.websocket_loop:
+            try:
+                self.websocket_loop.call_soon_threadsafe(self.websocket_loop.stop)
+            except:
+                pass
+        
+        if self.websocket_thread and self.websocket_thread.is_alive():
+            self.websocket_thread.join(timeout=2)
         
         # Close socket
         with self.socket_lock:

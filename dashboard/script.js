@@ -4,6 +4,7 @@ class MindDaemonDashboard {
     constructor() {
         this.currentTab = 'basic';
         this.trendsChart = null;
+        this.socket = null;
         this.init();
     }
 
@@ -12,17 +13,69 @@ class MindDaemonDashboard {
         this.setupEventListeners();
         this.loadSampleData();
         this.initChart();
+        this.connectSocket();
         
         // Update datetime every second
         setInterval(() => this.updateDateTime(), 1000);
-        
-        // Simulate data updates every 5 seconds
-        setInterval(() => this.updateRandomData(), 5000);
     }
 
     setupEventListeners() {
         // Tab switching is handled by global functions
         // Additional event listeners can be added here
+    }
+
+    connectSocket() {
+        // Connect to WebSocket server (需要后端支持WebSocket)
+        // 注意：原始的socket_interface.py使用TCP socket，需要修改为WebSocket
+        try {
+            this.socket = new WebSocket('ws://localhost:8889'); // 使用不同端口避免冲突
+            
+            this.socket.onopen = () => {
+                console.log('WebSocket连接已建立');
+            };
+            
+            this.socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    this.updateBasicDataFromSocket(data);
+                } catch (error) {
+                    console.error('解析WebSocket数据错误:', error);
+                }
+            };
+            
+            this.socket.onerror = (error) => {
+                console.error('WebSocket错误:', error);
+                // 如果WebSocket连接失败，回退到随机数据模式
+                this.startRandomDataFallback();
+            };
+            
+            this.socket.onclose = () => {
+                console.log('WebSocket连接已关闭');
+                // 尝试重新连接
+                setTimeout(() => {
+                    this.connectSocket();
+                }, 3000);
+            };
+            
+        } catch (error) {
+            console.error('WebSocket连接失败:', error);
+            this.startRandomDataFallback();
+        }
+    }
+
+    startRandomDataFallback() {
+        // 如果socket连接失败，使用随机数据作为备选方案
+        console.log('使用随机数据模式作为备选方案');
+        setInterval(() => this.updateRandomData(), 5000);
+    }
+
+    updateBasicDataFromSocket(data) {
+        // 从socket接收的数据更新基本数据
+        if (data && data.light && data.music && data.curtain && data.Scores) {
+            this.updateBasicData(data);
+            // 同时更新图表
+            this.updateChart(data.Scores);
+        }
     }
 
     updateDateTime() {
