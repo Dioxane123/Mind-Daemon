@@ -1,5 +1,5 @@
 .DS_store
-.venv/
+.venv
 python_demo/
 .env
 __pycache__/
