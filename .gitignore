@@ -23,3 +23,5 @@ peripheral/
 /demos
 /bci_data
 .claude/
+dashboard/node_modiles
+dashboard/.vite

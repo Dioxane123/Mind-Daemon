@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Demo - Mind Daemon</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .demo-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            z-index: 1000;
+            max-width: 300px;
+        }
+        
+        .demo-controls h4 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .demo-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+        
+        .demo-btn:hover {
+            background: var(--secondary-color);
+        }
+        
+        .demo-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--surface-color);
+            color: var(--text-primary);
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Demo Controls -->
+    <div class="demo-controls">
+        <h4><i class="fas fa-gamepad"></i> 演示控制</h4>
+        <button class="demo-btn" onclick="simulateStressState()">模拟压力状态</button>
+        <button class="demo-btn" onclick="simulateRelaxState()">模拟放松状态</button>
+        <button class="demo-btn" onclick="simulateFocusState()">模拟专注状态</button>
+        <button class="demo-btn" onclick="toggleLight()">切换灯光</button>
+        <button class="demo-btn" onclick="toggleMusic()">切换音乐</button>
+        <input type="color" class="demo-input" id="lightColorPicker" onchange="changeLightColor(this.value)" value="#FF5733">
+        <button class="demo-btn" onclick="randomizeData()">随机数据</button>
+    </div>
+
+    <!-- Main Dashboard Content -->
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1><i class="fas fa-brain"></i> Mind Daemon Dashboard - Demo</h1>
+            <div class="datetime" id="datetime"></div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <button class="tab-btn active" id="basic-tab" onclick="showTab('basic')">
+                <i class="fas fa-home"></i>
+                基本数据
+            </button>
+            <button class="tab-btn" id="advanced-tab" onclick="showTab('advanced')">
+                <i class="fas fa-chart-line"></i>
+                高级数据
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="dashboard-content">
+            <!-- Basic Data Page -->
+            <div id="basic-page" class="page active">
+                <div class="cards-grid">
+                    <!-- Light Card -->
+                    <div class="card light-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-lightbulb"></i> 灯光控制</h3>
+                            <div class="status-indicator" id="light-status"></div>
+                        </div>
+                        <div class="card-content">
+                            <div class="light-preview" id="light-preview"></div>
+                            <div class="light-info">
+                                <div class="info-item">
+                                    <span class="label">颜色:</span>
+                                    <span class="value" id="light-color">#FF5733</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">亮度:</span>
+                                    <span class="value" id="light-brightness">50%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Music Card -->
+                    <div class="card music-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-music"></i> 背景音乐</h3>
+                            <div class="status-indicator" id="music-status"></div>
+                        </div>
+                        <div class="card-content">
+                            <div class="music-info">
+                                <div class="song-name" id="song-name">Aria De Capo</div>
+                                <div class="song-type" id="song-type">Relaxing</div>
+                            </div>
+                            <div class="music-controls">
+                                <div class="volume-display">
+                                    <i class="fas fa-volume-up"></i>
+                                    <span id="volume-level">75%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Curtain Card -->
+                    <div class="card curtain-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-blind"></i> 窗帘状态</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="curtain-visual" id="curtain-visual">
+                                <div class="curtain-icon">
+                                    <i class="fas fa-window-maximize" id="curtain-icon"></i>
+                                </div>
+                                <div class="curtain-state" id="curtain-state">开启</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scores Card -->
+                    <div class="card scores-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-bar"></i> 精神状态指标</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="scores-grid">
+                                <div class="score-item attention">
+                                    <div class="score-icon"><i class="fas fa-eye"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">专注值 (Attention)</div>
+                                        <div class="score-value" id="attention-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="attention-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="score-item excitement">
+                                    <div class="score-icon"><i class="fas fa-bolt"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">兴奋值 (Excitement)</div>
+                                        <div class="score-value" id="excitement-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="excitement-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="score-item relaxation">
+                                    <div class="score-icon"><i class="fas fa-leaf"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">放松度 (Relaxation)</div>
+                                        <div class="score-value" id="relaxation-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="relaxation-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="score-item stress">
+                                    <div class="score-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">紧张度 (Stress)</div>
+                                        <div class="score-value" id="stress-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="stress-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Data Page -->
+            <div id="advanced-page" class="page">
+                <div class="advanced-grid">
+                    <!-- Current State Card -->
+                    <div class="card state-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-user-circle"></i> 当前状态</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="state-display">
+                                <div class="state-icon" id="state-icon">
+                                    <i class="fas fa-leaf"></i>
+                                </div>
+                                <div class="state-text" id="current-state">Relaxed</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Summary Card -->
+                    <div class="card summary-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-robot"></i> AI 分析建议</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="summary-content" id="ai-summary">
+                                用户当前处于放松状态，建议播放轻柔音乐并调暗灯光以维持这种状态。脑电信号显示专注度适中，压力水平较低，这是一个良好的工作或休息状态。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Action Card -->
+                    <div class="card action-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-cogs"></i> 系统操作</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="action-display">
+                                <div class="action-icon">
+                                    <i class="fas fa-sliders-h" id="action-icon"></i>
+                                </div>
+                                <div class="action-text" id="system-action">Adjusting Light & Music</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Card -->
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> 数据趋势</h3>
+                        </div>
+                        <div class="card-content">
+                            <canvas id="trendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Demo functions for interactive testing
+        function simulateStressState() {
+            const basicData = {
+                "light": { "is_on": true, "color_hex": "#FF4444", "lightness": 90 },
+                "music": { "is_playing": false, "name": "Silence", "type": "None" },
+                "curtain": { "state": 1 },
+                "Scores": { "At": 30, "Ex": 80, "Re": 20, "St": 85 }
+            };
+            const advancedData = {
+                "State": "Stressed",
+                "Summary": "检测到用户压力水平显著升高，心率加快，建议立即启动放松模式。建议播放舒缓音乐，调暗灯光至温暖色调，并提醒用户进行深呼吸练习。",
+                "Action": "Emergency Relaxation Mode"
+            };
+            updateDashboardData(basicData, advancedData);
+        }
+
+        function simulateRelaxState() {
+            const basicData = {
+                "light": { "is_on": true, "color_hex": "#66FF66", "lightness": 40 },
+                "music": { "is_playing": true, "name": "Gymnopedies 1", "type": "Ambient" },
+                "curtain": { "state": 0 },
+                "Scores": { "At": 45, "Ex": 25, "Re": 85, "St": 15 }
+            };
+            const advancedData = {
+                "State": "Relaxed",
+                "Summary": "用户处于理想的放松状态，各项指标均衡。当前环境设置非常适合，建议维持现状。这是进行创意思考或休息的最佳时机。",
+                "Action": "Maintain Current State"
+            };
+            updateDashboardData(basicData, advancedData);
+        }
+
+        function simulateFocusState() {
+            const basicData = {
+                "light": { "is_on": true, "color_hex": "#4466FF", "lightness": 75 },
+                "music": { "is_playing": true, "name": "Focus Piano", "type": "Concentration" },
+                "curtain": { "state": 0 },
+                "Scores": { "At": 90, "Ex": 60, "Re": 50, "St": 30 }
+            };
+            const advancedData = {
+                "State": "Focused",
+                "Summary": "用户进入高度专注状态，注意力集中度极高。当前是处理复杂任务的最佳时机，建议避免外界干扰，保持当前环境设置。",
+                "Action": "Do Not Disturb Mode"
+            };
+            updateDashboardData(basicData, advancedData);
+        }
+
+        function toggleLight() {
+            const currentStatus = document.getElementById('light-status').classList.contains('on');
+            const basicData = {
+                "light": { 
+                    "is_on": !currentStatus, 
+                    "color_hex": document.getElementById('light-color').textContent, 
+                    "lightness": parseInt(document.getElementById('light-brightness').textContent) 
+                },
+                "music": { 
+                    "is_playing": document.getElementById('music-status').classList.contains('on'),
+                    "name": document.getElementById('song-name').textContent, 
+                    "type": document.getElementById('song-type').textContent 
+                },
+                "curtain": { "state": document.getElementById('curtain-state').textContent === '开启' ? 0 : 1 },
+                "Scores": {
+                    "At": parseInt(document.getElementById('attention-score').textContent),
+                    "Ex": parseInt(document.getElementById('excitement-score').textContent),
+                    "Re": parseInt(document.getElementById('relaxation-score').textContent),
+                    "St": parseInt(document.getElementById('stress-score').textContent)
+                }
+            };
+            updateDashboardData(basicData, null);
+        }
+
+        function toggleMusic() {
+            const currentStatus = document.getElementById('music-status').classList.contains('on');
+            const basicData = {
+                "light": { 
+                    "is_on": document.getElementById('light-status').classList.contains('on'), 
+                    "color_hex": document.getElementById('light-color').textContent, 
+                    "lightness": parseInt(document.getElementById('light-brightness').textContent) 
+                },
+                "music": { 
+                    "is_playing": !currentStatus,
+                    "name": "Aria De Capo", 
+                    "type": "Relaxing" 
+                },
+                "curtain": { "state": document.getElementById('curtain-state').textContent === '开启' ? 0 : 1 },
+                "Scores": {
+                    "At": parseInt(document.getElementById('attention-score').textContent),
+                    "Ex": parseInt(document.getElementById('excitement-score').textContent),
+                    "Re": parseInt(document.getElementById('relaxation-score').textContent),
+                    "St": parseInt(document.getElementById('stress-score').textContent)
+                }
+            };
+            updateDashboardData(basicData, null);
+        }
+
+        function changeLightColor(color) {
+            const basicData = {
+                "light": { 
+                    "is_on": document.getElementById('light-status').classList.contains('on'), 
+                    "color_hex": color, 
+                    "lightness": parseInt(document.getElementById('light-brightness').textContent) 
+                },
+                "music": { 
+                    "is_playing": document.getElementById('music-status').classList.contains('on'),
+                    "name": document.getElementById('song-name').textContent, 
+                    "type": document.getElementById('song-type').textContent 
+                },
+                "curtain": { "state": document.getElementById('curtain-state').textContent === '开启' ? 0 : 1 },
+                "Scores": {
+                    "At": parseInt(document.getElementById('attention-score').textContent),
+                    "Ex": parseInt(document.getElementById('excitement-score').textContent),
+                    "Re": parseInt(document.getElementById('relaxation-score').textContent),
+                    "St": parseInt(document.getElementById('stress-score').textContent)
+                }
+            };
+            updateDashboardData(basicData, null);
+        }
+
+        function randomizeData() {
+            if (window.dashboard) {
+                window.dashboard.updateRandomData();
+            }
+        }
+    </script>
+</body>
+</html>
