@@ -1,5 +1,7 @@
 """Socket communication with main system - placeholder."""
 
+from config import remote_config
+
 import socket
 import json
 import time
@@ -12,7 +14,7 @@ except:
 class SocketClient:
     """Handles socket communication between detection module and main system."""
     
-    def __init__(self, host: str = "172.20.10.2", port: int = 8888):
+    def __init__(self, host: str = remote_config.host, port: int = 8888):
         self.host = host
         self.port = port
         self.socket = None

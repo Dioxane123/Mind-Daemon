@@ -54,119 +54,385 @@ class EnhancedGestureDetector:
         self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitoring_thread.start()
         print("✅ 开始手势检测监控")
+"""Gesture detection using development board and camera - placeholder."""
+
+from config import SSHConfig, remote_config
+
+import paramiko
+import time
+import threading
+import json
+from typing import Optional, Tuple, Dict, Any
+from dataclasses import dataclass
+from pathlib import Path
+try:
+    from loguru import logger
+    islogger = True
+except:
+    islogger = False
+
+class RemoteServiceController:
+    """Controller remote service"""
+
+    def __init__(self, config: SSHConfig):
+        """remote configs"""
+        self.config = config
+        self.ssh_client: Optional[paramiko.SSHClient] = None
+        self.is_monitoring = False
+        self.is_connected = False
+    
+    def connect(self) -> bool:
+        """connect to remote device"""
+        try:
+            self.ssh_client = paramiko.SSHClient()
+            self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            if islogger:
+                logger.info(f"正在连接至开发板{self.config.host}...")
+            else:
+                print(f"正在连接至开发板{self.config.host}...")
+            self.ssh_client.connect(
+                hostname=self.config.host,
+                port=self.config.port,
+                username=self.config.username,
+                password=self.config.password,
+                timeout=self.config.timeout
+            )
+            self.is_connected = True
+            if islogger:
+                logger.info("成功连接至开发板！")
+            else:
+                print("成功连接至开发板！")
+            return True
+        except paramiko.AuthenticationException:
+            if islogger:
+                logger.error("SSH认证失败，请检查用户名或密码。")
+            else:
+                print("SSH认证失败，请检查用户名或密码。")
+            return False
+        except paramiko.SSHException as e:
+            if islogger:
+                logger.error(f"SSH连接错误: {e}")
+            else:
+                print(f"SSH连接错误: {e}")
+            return False
+        except Exception as e:
+            if islogger:
+                logger.error(f"遇到错误: {e}")
+            else:
+                print(f"遇到错误: {e}")
+            return False
+    
+    def disconnect(self) -> None:
+        """disconnect to remote device"""
+        if self.ssh_client:
+            self.ssh_client.close()
+            self.is_connected = True
+            if islogger:
+                logger.info("已断开ssh连接")
+            else:
+                print("已断开ssh连接")
+    
+    def execute_command(self, command: str, timeout: int = 30) -> Tuple[int, str, str]:
+        """excute command on remote device"""
+        if not self.is_connected:
+            return -1, "", "SSH未连接"
+        
+        try:
+            stdin, stdout, stderr = self.ssh_client.exec_command(command, timeout=timeout)
+            
+            # 等待命令完成
+            exit_status = stdout.channel.recv_exit_status()
+            output = stdout.read().decode('utf-8', errors='ignore')
+            error = stderr.read().decode('utf-8', errors='ignore')
+            
+            return exit_status, output, error
+            
+        except Exception as e:
+            return -1, "", str(e)
+    
+    def start_services(self) -> bool:
+        """start service on remote device"""
+        if islogger:
+            logger.info("启动远程服务...")
+        else:
+            print("启动远程服务...")
+        
+        exit_code, output, error = self.execute_command(f"bash {self.config.script_path} start")
+        
+        if exit_code == 0:
+            if islogger:
+                logger.info("服务启动成功")
+            else:
+                print("服务启动成功")
+            if output:
+                if islogger:
+                    logger.info(f"输出: {output}")
+                else:
+                    print(f"输出: {output}")
+            return True
+        else:
+            if islogger:
+                logger.error("服务启动失败")
+            else:
+                print("服务启动失败")
+            if error:
+                if islogger:
+                    logger.error(f"错误信息: {error}")
+                else:
+                    print(f"错误信息: {error}")
+            return False
+    
+    def stop_services(self) -> bool:
+        """stop all services on remote device"""
+        if islogger:
+            logger.info("停止远程服务...")
+        else:
+            print("停止远程服务...")
+        
+        exit_code, output, error = self.execute_command(f"bash {self.config.script_path} stop")
+        
+        if exit_code == 0:
+            if islogger:
+                logger.info("服务已停止")
+            else:
+                print("服务已停止")
+            return True
+        else:
+            if islogger:
+                logger.error("停止服务失败")
+            else:
+                print("停止服务失败")
+            if error:
+                if islogger:
+                    logger.error(f"错误信息: {error}")
+                else:
+                    print(f"错误信息: {error}")
+            return False
+    
+    def restart_services(self) -> bool:
+        """restart all services on remote device"""
+        if islogger:
+            logger.info("重启远程服务...")
+        else:
+            print("重启远程服务...")
+        
+        exit_code, output, error = self.execute_command(f"bash {self.config.script_path} restart")
+        
+        if exit_code == 0:
+            if islogger:
+                logger.info("服务重启成功")
+            else:
+                print("服务重启成功")
+            return True
+        else:
+            if islogger:
+                logger.error("服务重启失败")
+            else:
+                print("服务重启失败")
+            if error:
+                if islogger:
+                    logger.error(f"错误信息: {error}")
+                else:
+                    print(f"错误信息: {error}")
+            return False
+    
+    def get_service_status(self) -> Dict[str, Any]:
+        """get the status of services on remote device"""
+        exit_code, output, error = self.execute_command(f"bash {self.config.script_path} status")
+        
+        status_info = {
+            "connected": self.is_connected,
+            "exit_code": exit_code,
+            "output": output,
+            "error": error,
+            "services_running": False
+        }
+        
+        if exit_code == 0 and "运行中" in output:
+            status_info["services_running"] = True
+        
+        return status_info
+
+
+class GestureDetector:
+    """Handles gesture detection during relax mode."""
+
+    def __init__(self, remote_config: SSHConfig):
+        self.monitoring = False
+        self.controller = RemoteServiceController(remote_config)
+        self.auto_reconnect = True
+        self.status_monitor_thread = None
+        
+    def connect(self) -> bool:
+        return self.controller.connect()
+    
+    def disconnect(self) -> bool:
+        self.monitoring = False
+        return self.controller.disconnect()
+    
+    def start_services(self) -> bool:
+        """start services"""
+        if not self.controller.is_connected:
+            if islogger:
+                logger.error("未连接到开发板")
+            else:
+                print("未连接到开发板")
+            return False
+        
+        return self.controller.start_services()
+    
+    def stop_services(self) -> bool:
+        """stop services"""
+        if not self.controller.is_connected:
+            if islogger:
+                logger.error("未连接到开发板")
+            else:
+                print("未连接到开发板")
+            return False
+        
+        return self.controller.stop_services()
+
+    def restart_services(self) -> bool:
+        """restart services"""
+        if not self.controller.is_connected:
+            if islogger:
+                logger.error("未连接到开发板")
+            else:
+                print("未连接到开发板")
+            return False
+        
+        return self.controller.restart_services()
+    
+    def get_status(self) -> Dict[str, Any]:
+        """get status of services"""
+        if not self.controller.is_connected:
+            return {"connected": False, "error": "未连接到开发板"}
+        
+        return self.controller.get_service_status()
+
+    def start_monitoring(self, interval: int = 5):
+        """Start continuous monitoring."""
+        if self.monitoring:
+            return
+        
+        self.monitoring = True
+        self.status_monitor_thread = threading.Thread(
+            target=self._monitor_status, 
+            args=(interval,),
+            daemon=True
+        )
+        self.status_monitor_thread.start()
         
     def stop_monitoring(self):
-        """停止手势监控."""
-        self.is_monitoring = False
-        if self.monitoring_thread and self.monitoring_thread.is_alive():
-            self.monitoring_thread.join(timeout=1)
-        self.socket_client.disconnect()
-        print("⏹️  手势检测监控已停止")
+        """Stop monitoring."""
+        self.monitoring = False
+        if self.status_monitor_thread:
+            self.status_monitor_thread.join(timeout=5)
+        if islogger:
+            logger.info("状态监控已停止")
+        else:
+            print("状态监控已停止")
         
-    def _monitoring_loop(self):
-        """手势监控主循环."""
-        while self.is_monitoring:
-            try:
-                # 尝试连接并接收手势数据
-                if not self.socket_client.is_connected():
-                    if not self.socket_client.connect():
-                        print("🔄 等待手势检测服务器连接...")
-                        time.sleep(5)
-                        continue
-                
-                # 等待手势数据
-                gesture_data = self.socket_client.wait_gesture()
-                
-                if gesture_data:
-                    self._process_gesture_data(gesture_data)
-                else:
-                    # 没有数据，等待一下再继续
-                    time.sleep(0.5)
-                    
-            except Exception as e:
-                print(f"⚠️  手势监控出错: {e}")
-                time.sleep(2)
-                
-    def _process_gesture_data(self, gesture_data: Dict[str, Any]):
-        """处理接收到的手势数据."""
-        try:
-            # 解析手势数据
-            gesture_id = gesture_data.get('gesture', 0)
-            confidence = gesture_data.get('confidence', 0.0)
-            timestamp = gesture_data.get('timestamp', time.time())
-            
-            # 转换为手势名称
-            gesture_name = GESTURE_MAP.get(gesture_id, f"Unknown_{gesture_id}")
-            
-            # 检查冷却时间
-            current_time = time.time()
-            if (gesture_name == self.last_gesture and 
-                current_time - self.last_gesture_time < self.gesture_cooldown):
-                return
-                
-            # 检查是否为支持的模式切换手势
-            if gesture_name in MODE_GESTURES:
-                mode = MODE_GESTURES[gesture_name]
-                
-                print(f"👋 检测到手势: {gesture_name} -> {mode} (置信度: {confidence:.2f})")
-                
-                # 更新最后手势信息
-                self.last_gesture = gesture_name
-                self.last_gesture_time = current_time
-                
-                # 调用回调函数
-                if self.gesture_callback:
-                    self.gesture_callback(gesture_name, mode)
-            else:
-                print(f"👋 检测到手势: {gesture_name} (置信度: {confidence:.2f}) - 无对应模式")
-                
-        except Exception as e:
-            print(f"⚠️  处理手势数据失败: {e}")
-            
-    def detect_single_gesture(self, timeout: float = 5.0) -> Optional[tuple]:
-        """检测单个手势 (阻塞式).
-        
-        Args:
-            timeout: 超时时间
-            
-        Returns:
-            (gesture_name, mode) 或 None
-        """
-        try:
-            if not self.socket_client.connect():
-                print("❌ 无法连接到手势检测服务器")
-                return None
-                
-            # 设置socket超时
-            self.socket_client.socket.settimeout(timeout)
-            
-            gesture_data = self.socket_client.wait_gesture()
-            
-            if gesture_data:
-                gesture_id = gesture_data.get('gesture', 0)
-                gesture_name = GESTURE_MAP.get(gesture_id, f"Unknown_{gesture_id}")
-                
-                if gesture_name in MODE_GESTURES:
-                    mode = MODE_GESTURES[gesture_name]
-                    return (gesture_name, mode)
-                    
-            return None
-            
-        except Exception as e:
-            print(f"⚠️  单次手势检测失败: {e}")
-            return None
-        finally:
-            self.socket_client.disconnect()
-            
-    def get_supported_gestures(self) -> Dict[str, str]:
-        """获取支持的手势和对应模式."""
-        return MODE_GESTURES.copy()
-        
-    def is_connected(self) -> bool:
-        """检查是否连接到手势检测服务器."""
-        return self.socket_client.is_connected()
+    # def detect_gesture(self) -> str:
+    #     """Detect and return current gesture."""
+    #     pass
 
-# 保持向后兼容
-class GestureDetector(EnhancedGestureDetector):
-    """向后兼容的手势检测器."""
-    pass
+    def _monitor_status(self, interval: int):
+        """monitor thread"""
+        while self.monitoring:
+            try:
+                if self.controller.is_connected:
+                    status = self.get_status()
+                    if status.get("services_running"):
+                        if islogger:
+                            logger.info("服务运行正常")
+                        else:
+                            print("服务运行正常")
+                    else:
+                        if islogger:
+                            logger.warning("服务状态异常")
+                        else:
+                            print("服务状态异常")
+                        if self.auto_reconnect:
+                            if islogger:
+                                logger.warning("尝试重启服务...")
+                            else:
+                                print("尝试重启服务...")
+                            self.restart_services()
+                else:
+                    if islogger:
+                        logger.error("连接断开")
+                    else:
+                        print("连接断开")
+                    if self.auto_reconnect:
+                        print("尝试重新连接...")
+                        if self.connect():
+                            self.start_services()
+                
+                time.sleep(interval)
+                
+            except Exception as e:
+                if islogger:
+                    logger.error(f"监控错误: {e}")
+                else:
+                    print(f"监控错误: {e}")
+                time.sleep(interval)
+
+if __name__ == "__main__":
+    manager = GestureDetector(remote_config)
+    
+    print("🎯 手势识别服务远程控制器")
+    print("=" * 50)
+    
+    try:
+        # 连接到开发板
+        if not manager.connect():
+            print("❌ 无法连接到开发板，程序退出")
+        
+        # 交互式菜单
+        while True:
+            print("\n📋 可用命令:")
+            print("1. start    - 启动服务")
+            print("2. stop     - 停止服务")
+            print("3. restart  - 重启服务")
+            print("4. status   - 查看状态")
+            print("5. logs     - 查看日志")
+            print("6. monitor  - 开始监控")
+            print("7. quit     - 退出程序")
+            
+            choice = input("\n请选择操作 (1-7): ").strip()
+            
+            if choice == "1" or choice.lower() == "start":
+                manager.start_services()
+            elif choice == "2" or choice.lower() == "stop":
+                manager.stop_services()
+            elif choice == "3" or choice.lower() == "restart":
+                manager.restart_services()
+            elif choice == "4" or choice.lower() == "status":
+                status = manager.get_status()
+                print(f"状态信息: {status}")
+            elif choice == "5" or choice.lower() == "logs":
+                log_type = input("选择日志类型 (ros/socket/all) [all]: ").strip() or "all"
+                manager.show_logs(log_type)
+            elif choice == "6" or choice.lower() == "monitor":
+                if not manager.monitoring:
+                    interval = input("监控间隔(秒) [10]: ").strip()
+                    try:
+                        interval = int(interval) if interval else 10
+                    except ValueError:
+                        interval = 10
+                    manager.start_monitoring(interval)
+                else:
+                    print("监控已在运行中")
+            elif choice == "7" or choice.lower() == "quit":
+                break
+            else:
+                print("❌ 无效选择")
+    
+    except KeyboardInterrupt:
+        print("\n🛑 用户中断")
+    finally:
+        print("🧹 清理资源...")
+        manager.stop_services()
+        manager.disconnect()
+        print("👋 程序结束")
