@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mind Daemon Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1><i class="fas fa-brain"></i> Mind Daemon Dashboard</h1>
+            <div class="datetime" id="datetime"></div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <button class="tab-btn active" id="basic-tab" onclick="showTab('basic')">
+                <i class="fas fa-home"></i>
+                基本数据
+            </button>
+            <button class="tab-btn" id="advanced-tab" onclick="showTab('advanced')">
+                <i class="fas fa-chart-line"></i>
+                高级数据
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="dashboard-content">
+            <!-- Basic Data Page -->
+            <div id="basic-page" class="page active">
+                <div class="cards-grid">
+                    <!-- Light Card -->
+                    <div class="card light-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-lightbulb"></i> 灯光控制</h3>
+                            <div class="status-indicator" id="light-status"></div>
+                        </div>
+                        <div class="card-content">
+                            <div class="light-preview" id="light-preview"></div>
+                            <div class="light-info">
+                                <div class="info-item">
+                                    <span class="label">颜色:</span>
+                                    <span class="value" id="light-color">#FF5733</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">亮度:</span>
+                                    <span class="value" id="light-brightness">50%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Music Card -->
+                    <div class="card music-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-music"></i> 背景音乐</h3>
+                            <div class="status-indicator" id="music-status"></div>
+                        </div>
+                        <div class="card-content">
+                            <div class="music-info">
+                                <div class="song-name" id="song-name">Aria De Capo</div>
+                                <div class="song-type" id="song-type">Relaxing</div>
+                            </div>
+                            <div class="music-controls">
+                                <div class="volume-display">
+                                    <i class="fas fa-volume-up"></i>
+                                    <span id="volume-level">75%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Curtain Card -->
+                    <div class="card curtain-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-blind"></i> 窗帘状态</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="curtain-visual" id="curtain-visual">
+                                <div class="curtain-icon">
+                                    <i class="fas fa-window-maximize" id="curtain-icon"></i>
+                                </div>
+                                <div class="curtain-state" id="curtain-state">开启</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scores Card -->
+                    <div class="card scores-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-bar"></i> 精神状态指标</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="scores-grid">
+                                <div class="score-item attention">
+                                    <div class="score-icon"><i class="fas fa-eye"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">专注值 (Attention)</div>
+                                        <div class="score-value" id="attention-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="attention-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="score-item excitement">
+                                    <div class="score-icon"><i class="fas fa-bolt"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">兴奋值 (Excitement)</div>
+                                        <div class="score-value" id="excitement-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="excitement-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="score-item relaxation">
+                                    <div class="score-icon"><i class="fas fa-leaf"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">放松度 (Relaxation)</div>
+                                        <div class="score-value" id="relaxation-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="relaxation-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="score-item stress">
+                                    <div class="score-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                                    <div class="score-info">
+                                        <div class="score-label">紧张度 (Stress)</div>
+                                        <div class="score-value" id="stress-score">50</div>
+                                        <div class="score-bar">
+                                            <div class="score-fill" id="stress-fill" style="width: 50%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Data Page -->
+            <div id="advanced-page" class="page">
+                <div class="advanced-grid">
+                    <!-- Current State Card -->
+                    <div class="card state-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-user-circle"></i> 当前状态</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="state-display">
+                                <div class="state-icon" id="state-icon">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </div>
+                                <div class="state-text" id="current-state">Stress</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Summary Card -->
+                    <div class="card summary-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-robot"></i> AI 分析建议</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="summary-content" id="ai-summary">
+                                LLM out
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Action Card -->
+                    <div class="card action-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-cogs"></i> 系统操作</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="action-display">
+                                <div class="action-icon">
+                                    <i class="fas fa-bell" id="action-icon"></i>
+                                </div>
+                                <div class="action-text" id="system-action">Notify</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Card -->
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> 数据趋势</h3>
+                        </div>
+                        <div class="card-content">
+                            <canvas id="trendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
