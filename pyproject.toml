@@ -17,6 +17,10 @@ dependencies = [
     "fastmcp",
     "openai",
     "pyqt6",
+    "pyobjc-framework-cocoa>=11.1",
+    "pyobjc-framework-quartz>=11.1",
+    "python-dotenv>=1.1.1",
+    "qasync>=0.27.1",
 ]
 
 [project.scripts]

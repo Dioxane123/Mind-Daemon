@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "halo": {
+      "command": "python",
+      "args": ["src/mind_daemon/mcp/halo_server.py"],
+      "cwd": "/Users/m3airmima0000/Mind-Daemon"
+    },
+    "music": {
+      "command": "python",
+      "args": ["src/mind_daemon/mcp/music_server.py"],
+      "cwd": "/Users/m3airmima0000/Mind-Daemon"
+    },
+    "bci-analysis": {
+      "command": "python",
+      "args": ["src/mind_daemon/mcp/analysis_server.py"],
+      "cwd": "/Users/m3airmima0000/Mind-Daemon"
+    }
+  }
+}

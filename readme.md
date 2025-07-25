@@ -32,6 +32,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 2. 同步项目依赖
 uv sync
+
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入你的API密钥和凭据
 ```
 
 ### 演示模式
@@ -175,14 +179,16 @@ python3 demos/run_demo.py basic
 # 1. 安装额外依赖
 uv add PyQt6  # 光晕效果
 
-# 2. 配置Emotiv设备
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入以下信息:
+# - EMOTIV_CLIENT_ID: 从 emotiv.com 开发者账户获取
+# - EMOTIV_CLIENT_SECRET: 从 emotiv.com 开发者账户获取  
+# - MINIMAX_API_KEY: 从 api.minimax.chat 获取 (可选)
+
+# 3. 配置Emotiv设备
 # - 安装EMOTIV Launcher
 # - 连接设备或创建虚拟设备
-# - 获取开发者凭证
-
-# 3. 配置MiniMax API (可选)
-# - 注册MiniMax账号
-# - 获取API密钥
 
 # 4. 运行完整演示
 python3 demos/run_demo.py complete
@@ -207,7 +213,12 @@ python3 demos/run_demo.py complete
    - 确认音频系统工作正常
    - 验证文件格式支持 (MP3, WAV, M4A)
 
-4. **依赖问题**
+4. **配置问题**
+   - 检查 `.env` 文件是否存在: `ls -la .env`
+   - 验证凭据格式正确，无多余空格或引号
+   - 确认 Emotiv Client ID/Secret 有效性
+
+5. **依赖问题**
    - 重新同步: `uv sync`
    - 检查Python版本兼容性
    - 查看详细错误日志
@@ -218,6 +229,38 @@ python3 demos/run_demo.py complete
 - **关闭不必要功能**: 禁用光晕或音乐
 - **使用SSD**: 提高音乐文件读取速度
 - **调整缓冲区**: 优化音频播放延迟
+
+## ⚙️ 配置说明
+
+### 环境变量配置
+
+系统使用 `.env` 文件管理所有配置信息，包括：
+
+#### 必需配置
+```bash
+# Emotiv BCI 设备凭据
+EMOTIV_CLIENT_ID=your_client_id
+EMOTIV_CLIENT_SECRET=your_client_secret
+```
+
+#### 可选配置  
+```bash
+# MiniMax LLM API (智能决策)
+MINIMAX_API_KEY=your_api_key
+
+# 系统参数
+USER_ID=your_user_id                  # 数据记录用户标识
+CSV_OUTPUT_DIR=bci_data              # CSV数据输出目录
+MUSIC_DIR=music                      # 音乐文件目录
+HALO_DURATION=5.0                    # 光晕持续时间(秒)
+DEFAULT_VOLUME=0.5                   # 默认音量(0.0-1.0)
+```
+
+### 配置方法
+
+1. **复制模板**: `cp .env.example .env`
+2. **编辑配置**: 使用文本编辑器修改 `.env` 文件
+3. **验证配置**: `python3 src/mind_daemon/utils/config.py`
 
 ## 📚 开发文档
 
