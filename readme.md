@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="项目Logo" width="200"/>
+  <img src="logo_hori.png" alt="项目Logo" width="200"/>
 </div>
 
 # Mind Daemon - BCI智能辅助系统
