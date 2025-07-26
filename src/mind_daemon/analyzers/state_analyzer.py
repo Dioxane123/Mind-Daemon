@@ -18,6 +18,10 @@ from dataclasses import dataclass
 from enum import Enum
 import logging
 import math
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -68,24 +72,22 @@ class StateAnalyzer:
         初始化状态分析器
         
         Args:
-            data_dir: CSV数据文件目录，默认为append_logs
+            data_dir: CSV数据文件目录，默认从.env文件读取DATA_PATH
         """
         if data_dir is None:
-            # 查找项目根目录下的append_logs
-            current_dir = os.path.dirname(__file__)
-            # 向上查找，直到找到包含append_logs的目录
-            project_root = current_dir
-            while project_root != os.path.dirname(project_root):
-                append_logs_path = os.path.join(project_root, 'append_logs')
-                if os.path.exists(append_logs_path):
-                    data_dir = append_logs_path
-                    break
-                project_root = os.path.dirname(project_root)
+            # 从环境变量读取数据目录路径
+            data_path = os.getenv('DATA_PATH', './data')
+            # 如果是相对路径，从当前工作目录解析
+            if not os.path.isabs(data_path):
+                data_dir = os.path.abspath(data_path)
             else:
-                # 如果没找到，使用默认位置
-                data_dir = os.path.join(os.path.dirname(__file__), 'append_logs')
+                data_dir = data_path
         
         self.data_dir = data_dir
+        
+        # 确保数据目录存在
+        if not os.path.exists(self.data_dir):
+            logger.warning(f"数据目录不存在: {self.data_dir}")
         
         # 状态判断阈值 (基于经验设定，可后续调优)
         self.thresholds = {
@@ -110,12 +112,16 @@ class StateAnalyzer:
             (met_data, pow_data): 元组包含两个DataFrame
         """
         try:
+            # 检查数据目录是否存在
+            if not os.path.exists(self.data_dir):
+                raise FileNotFoundError(f"数据目录不存在: {self.data_dir}")
+            
             # 找到最新的CSV文件
             met_files = [f for f in os.listdir(self.data_dir) if f.startswith('met_') and f.endswith('.csv')]
             pow_files = [f for f in os.listdir(self.data_dir) if f.startswith('pow_') and f.endswith('.csv')]
             
             if not met_files or not pow_files:
-                raise FileNotFoundError("未找到met或pow数据文件")
+                raise FileNotFoundError(f"在目录 {self.data_dir} 中未找到met或pow数据文件")
             
             # 使用最新文件
             latest_met = sorted(met_files)[-1]

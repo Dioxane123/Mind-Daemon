@@ -19,6 +19,11 @@ from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 import logging
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 导入其他模块
 from ..analyzers.state_analyzer import StateAnalyzer, MentalState, StateAnalysisResult
@@ -49,19 +54,19 @@ class AdvancedParams:
 class EnhancedSocketInterface:
     """增强Socket接口"""
     
-    def __init__(self, host: str = "localhost", port: int = 8888, 
+    def __init__(self, host: str = None, port: int = None, 
                  protocol: str = "UDP", config: Dict[str, Any] = None):
         """
         初始化增强Socket接口
         
         Args:
-            host: 目标主机地址
-            port: 目标端口
+            host: 目标主机地址，默认从环境变量读取
+            port: 目标端口，默认从环境变量读取
             protocol: 协议类型 ("TCP" 或 "UDP")
             config: 系统配置
         """
-        self.host = host
-        self.port = port
+        self.host = host or os.getenv('SOCKET_HOST', 'localhost')
+        self.port = port or int(os.getenv('SOCKET_PORT', '8888'))
         self.protocol = protocol.upper()
         self.config = config or {}
         

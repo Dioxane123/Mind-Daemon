@@ -89,6 +89,46 @@
                         </div>
                     </div>
 
+                    <!-- Gesture Detection Card -->
+                    <div class="card gesture-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-hand-paper"></i> 手势识别</h3>
+                            <div class="status-indicator" id="gesture-status"></div>
+                        </div>
+                        <div class="card-content">
+                            <div class="gesture-info">
+                                <div class="info-item">
+                                    <span class="label">服务状态:</span>
+                                    <span class="value" id="gesture-service-status">未启用</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">连接状态:</span>
+                                    <span class="value" id="gesture-connection-status">断开连接</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">最近手势:</span>
+                                    <span class="value" id="gesture-last-detected">无</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">置信度:</span>
+                                    <span class="value" id="gesture-confidence">--</span>
+                                </div>
+                            </div>
+                            <div class="gesture-status-details">
+                                <div class="status-item">
+                                    <i class="fas fa-server"></i>
+                                    <span class="status-label">SSH:</span>
+                                    <span class="status-value" id="ssh-status">未连接</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-plug"></i>
+                                    <span class="status-label">Socket:</span>
+                                    <span class="status-value" id="socket-status">未连接</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Scores Card -->
                     <div class="card scores-card">
                         <div class="card-header">

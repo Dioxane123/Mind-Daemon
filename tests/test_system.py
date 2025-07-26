@@ -8,9 +8,13 @@ Mind Daemon 系统测试脚本
 import asyncio
 import sys
 import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 添加src到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 def test_imports():
     """测试模块导入"""

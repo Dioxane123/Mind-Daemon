@@ -666,3 +666,131 @@ body {
         font-size: 0.85rem;
     }
 }
+
+/* Gesture Detection Card Styles */
+.gesture-card::before {
+    background: linear-gradient(90deg, var(--accent-color), #0891b2);
+}
+
+.gesture-card .card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.gesture-info {
+    display: grid;
+    gap: 15px;
+}
+
+.gesture-info .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: var(--transition);
+}
+
+.gesture-info .info-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.gesture-info .label {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.gesture-info .value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.gesture-status-details {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.status-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    transition: var(--transition);
+}
+
+.status-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.status-item i {
+    color: var(--accent-color);
+    font-size: 0.9rem;
+}
+
+.status-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.status-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+/* Gesture card animation */
+.gesture-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Responsive gesture card */
+@media (max-width: 768px) {
+    .gesture-status-details {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .gesture-info .info-item {
+        padding: 10px 12px;
+    }
+    
+    .gesture-info .label,
+    .gesture-info .value {
+        font-size: 0.9rem;
+    }
+    
+    .status-item {
+        padding: 8px 10px;
+    }
+    
+    .status-label,
+    .status-value {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .gesture-info {
+        gap: 12px;
+    }
+    
+    .gesture-info .info-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 5px;
+    }
+    
+    .gesture-status-details {
+        gap: 8px;
+    }
+}

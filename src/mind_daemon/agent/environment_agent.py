@@ -8,7 +8,7 @@
 - 平滑过渡和渐变效果
 - 音乐自动选择和播放
 
-作者：Mind Daemon Project
+作者：MiniMax
 """
 
 import os
@@ -24,6 +24,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 import logging
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 尝试导入psutil，如果不可用则使用fallback机制
 try:
@@ -630,21 +634,25 @@ class EnvironmentAgent:
         self.curtain_state = CurtainState()
         self.halo_state = HaloState()
         
-        # 导入配置系统
-        from ..utils.config import config as global_config
-        self.global_config = global_config
+        # 使用环境变量配置（替换config系统）
+        # from ..utils.config import config as global_config
+        # self.global_config = global_config
+        self.global_config = {  # 使用环境变量替代
+            'MUSIC_DIR': os.getenv('MUSIC_DIR', 'music'),
+            'WINDOW_PY_PATH': os.getenv('WINDOW_PY_PATH', 'src/mind_daemon/peripheral/window.py')
+        }
         
         # 音乐播放器配置
-        music_dir = global_config.get('MUSIC_DIR')
+        music_dir = self.global_config.get('MUSIC_DIR')
         self.music_player = MusicPlayer(music_dir)
         
         # 光晕控制器配置
-        window_py_path = global_config.get('WINDOW_PY_PATH')
+        window_py_path = self.global_config.get('WINDOW_PY_PATH')
         self.halo_controller = HaloController(window_py_path)
         
         # LLM API配置
-        self.minimax_api_key = global_config.get('MINIMAX_API_KEY')
-        self.minimax_base_url = global_config.get('MINIMAX_BASE_URL')
+        self.minimax_api_key = self.global_config.get('MINIMAX_API_KEY')
+        self.minimax_base_url = self.global_config.get('MINIMAX_BASE_URL')
         
         # 状态变化历史
         self.state_history: List[str] = []

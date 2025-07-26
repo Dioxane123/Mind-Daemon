@@ -8,7 +8,7 @@ Task 3: MiniMax智能体 - 基于阈值和经验的行为决策系统
 - 支持MCP服务调用
 - 提供用户通知和建议
 
-作者：Mind Daemon Project
+作者：MiniMax
 """
 
 import os
@@ -20,6 +20,10 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from enum import Enum
 import logging
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 导入其他模块
 from ..analyzers.state_analyzer import StateAnalyzer, MentalState, StateAnalysisResult
@@ -87,9 +91,14 @@ class MiniMaxAgent:
         Args:
             config_path: 配置文件路径（已废弃，使用全局配置系统）
         """
-        # 导入配置系统
-        from ..utils.config import config as global_config
-        self.config = global_config
+        # 使用环境变量配置（替换config系统）
+        # from ..utils.config import config as global_config
+        # self.config = global_config
+        self.config = {  # 使用环境变量替代
+            'MINIMAX_API_KEY': os.getenv('MINIMAX_API_KEY'),
+            'MINIMAX_BASE_URL': os.getenv('MINIMAX_BASE_URL'),
+            'MINIMAX_MODEL': os.getenv('MINIMAX_MODEL', 'MiniMax-Text-01')
+        }
         
         # 初始化分析器
         self.state_analyzer = StateAnalyzer()

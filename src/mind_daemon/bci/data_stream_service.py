@@ -20,11 +20,15 @@ from collections import deque
 from datetime import datetime
 import os
 import numpy as np
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 from .cortex import Cortex
 from .sub_data import Subcribe
 from .data_store import AveragingLogger
-from ..utils.config import config
+# from ..utils.config import config  # 已替换为直接使用环境变量
 from ..analyzers.realtime_algorithms import get_algorithm_analyzer
 
 logger = logging.getLogger(__name__)
@@ -67,8 +71,17 @@ class SimplifiedBCISubscriber(Subcribe):
             self.pow_labels = stream_labels
             logger.info(f"保存pow标签用于算法分析: {len(stream_labels)}个频段")
             
+        # 创建CSV文件用于数据存储
+        try:
+            # 创建数据目录
+            data_dir = os.getenv('DATA_DIR', './data')
+            if not os.path.isabs(data_dir):
+                data_dir = os.path.abspath(data_dir)
+            if not os.path.exists(data_dir):
+                os.makedirs(data_dir)
+            
             # 为pow数据5秒平均值创建单独的CSV文件
-            try:
+            if stream_name == 'pow':
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 pow_avg_filename = os.path.join(data_dir, f"pow_5s_avg_{timestamp}.csv")
                 
@@ -77,15 +90,6 @@ class SimplifiedBCISubscriber(Subcribe):
                 avg_headers = ['time', 'timestamp'] + [f'{label}_avg' for label in stream_labels]
                 self.pow_avg_csv_writer.writerow(avg_headers)
                 logger.info(f"创建pow 5秒平均值CSV文件: {pow_avg_filename}")
-            except Exception as e:
-                logger.error(f"创建pow平均值CSV文件失败: {e}")
-        
-        # 创建CSV文件用于数据存储
-        try:
-            # 创建数据目录
-            data_dir = config.get('DATA_DIR', 'data')
-            if not os.path.exists(data_dir):
-                os.makedirs(data_dir)
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = os.path.join(data_dir, f"{stream_name}_{timestamp}.csv")
@@ -258,9 +262,9 @@ class BCIDataStreamService:
             client_secret: Emotiv客户端密钥
         """
         # 配置
-        self.client_id = client_id or config.get('EMOTIV_CLIENT_ID')
-        self.client_secret = client_secret or config.get('EMOTIV_CLIENT_SECRET')
-        self.dev_mode = config.get('DEV_MODE')
+        self.client_id = client_id or os.getenv('EMOTIV_CLIENT_ID')
+        self.client_secret = client_secret or os.getenv('EMOTIV_CLIENT_SECRET')
+        self.dev_mode = os.getenv('DEV_MODE', 'false').lower() == 'true'
         
         # BCI数据订阅器
         self.bci_subscriber: Optional[SimplifiedBCISubscriber] = None  # 简化的BCI数据订阅器
@@ -342,7 +346,9 @@ class BCIDataStreamService:
         """启动开发模式（模拟数据）"""
         try:
             # 创建数据目录
-            data_dir = config.get('DATA_DIR', 'data')
+            data_dir = os.getenv('DATA_DIR', './data')
+            if not os.path.isabs(data_dir):
+                data_dir = os.path.abspath(data_dir)
             if not os.path.exists(data_dir):
                 os.makedirs(data_dir)
             
@@ -365,7 +371,9 @@ class BCIDataStreamService:
         
         try:
             # 创建数据目录
-            data_dir = config.get('DATA_DIR', 'data')
+            data_dir = os.getenv('DATA_DIR', './data')
+            if not os.path.isabs(data_dir):
+                data_dir = os.path.abspath(data_dir)
             if not os.path.exists(data_dir):
                 os.makedirs(data_dir)
             

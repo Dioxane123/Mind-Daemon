@@ -1,6 +1,12 @@
 """Socket communication with main system - placeholder."""
 
-from config import remote_config
+try:
+    from .config import remote_config
+except ImportError:
+    import sys
+    import os
+    sys.path.append(os.path.dirname(__file__))
+    from config import remote_config
 
 import socket
 import json
