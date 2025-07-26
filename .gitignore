@@ -102,23 +102,12 @@ http_server.log
 # Legacy 目录（已废弃）
 # =========================
 MCP_for_Agent/
-python_demo/
-python/
-
-# =========================
-# 开发和测试文件
-# =========================
-test*
-*_test.py
-prototype_*.py
-demo_*.py
-scratch/
-experiments/
-
-# =========================
-# 前端相关
-# =========================
-dashboard/node_modules
+# peripheral/
+*.csv
+/demos
+/bci_data
+.claude/
+dashboard/node_modiles
 dashboard/.vite
 dashboard/dist
 

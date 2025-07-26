@@ -1,9 +1,13 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 class SSHConfig:
     def __init__(self,
-                host: str = "172.20.10.2",
+                host: str = os.getenv('RDK_HOST'),
                 port: int = 22,
-                username: str = "root",
-                password: str = "root",
+                username: str = os.getenv('RDK_USER'),
+                password: str = os.getenv('RDK_PASSWORD'),
                 script_path: str = "/root/service_manager.sh",
                 timeout: int = 30):
         self.host = host
