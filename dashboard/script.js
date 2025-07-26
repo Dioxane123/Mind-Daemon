@@ -4,7 +4,11 @@ class MindDaemonDashboard {
     constructor() {
         this.currentTab = 'basic';
         this.trendsChart = null;
+        this.stateHistoryChart = null;
+        this.algorithmTrendsChart = null; // 算法指标趋势图表
         this.socket = null;
+        this.stateHistory = []; // 存储状态历史
+        this.algorithmHistory = []; // 存储算法数据历史
         this.init();
     }
 
@@ -13,6 +17,8 @@ class MindDaemonDashboard {
         this.setupEventListeners();
         this.loadSampleData();
         this.initChart();
+        this.initStateHistoryChart();
+        this.initAlgorithmTrendsChart(); // 初始化算法趋势图表
         this.connectSocket();
         
         // Update datetime every second
@@ -43,11 +49,11 @@ class MindDaemonDashboard {
                 }
             };
             
-            this.socket.onerror = (error) => {
-                console.error('WebSocket错误:', error);
-                // 如果WebSocket连接失败，回退到随机数据模式
-                this.startRandomDataFallback();
-            };
+            // this.socket.onerror = (error) => {
+            //     console.error('WebSocket错误:', error);
+            //     // 如果WebSocket连接失败，回退到随机数据模式
+            //     this.startRandomDataFallback();
+            // };
             
             this.socket.onclose = () => {
                 console.log('WebSocket连接已关闭');
@@ -70,11 +76,33 @@ class MindDaemonDashboard {
     }
 
     updateBasicDataFromSocket(data) {
-        // 从socket接收的数据更新基本数据
-        if (data && data.light && data.music && data.curtain && data.Scores) {
-            this.updateBasicData(data);
-            // 同时更新图表
-            this.updateChart(data.Scores);
+        // 从socket接收的数据更新基本数据和高级数据
+        if (data && data.basic) {
+            // 更新基础数据
+            if (data.basic.light && data.basic.music && data.basic.curtain && data.basic.Scores) {
+                this.updateBasicData(data.basic);
+                // 同时更新图表
+                this.updateChart(data.basic.Scores);
+            }
+            
+            // 更新算法分析数据
+            if (data.basic.algorithm_analysis) {
+                this.updateAlgorithmAnalysis(data.basic.algorithm_analysis);
+            }
+        }
+        
+        if (data && data.advanced) {
+            // 更新高级数据
+            if (data.advanced.State && data.advanced.Summary && data.advanced.Action) {
+                this.updateAdvancedData(data.advanced);
+                // 更新状态历史图表
+                this.updateStateHistory(data.advanced.State);
+            }
+            
+            // 更新高级算法分析数据
+            if (data.advanced.clinical_analysis || data.advanced.cognitive_analysis) {
+                this.updateAdvancedAlgorithmAnalysis(data.advanced.clinical_analysis, data.advanced.cognitive_analysis);
+            }
         }
     }
 
@@ -389,6 +417,58 @@ class MindDaemonDashboard {
         this.initChartData();
     }
 
+    initStateHistoryChart() {
+        const ctx = document.getElementById('stateHistoryChart').getContext('2d');
+        
+        this.stateHistoryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '精神状态',
+                    data: [],
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#8b5cf6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#cbd5e1'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            color: '#475569'
+                        }
+                    },
+                    y: {
+                        type: 'category',
+                        labels: ['RELAXED', 'NEUTRAL', 'FOCUSED', 'STRESSED', 'DISTRACTED', 'FATIGUED'],
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            color: '#475569'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     initChartData() {
         const now = new Date();
         for (let i = 9; i >= 0; i--) {
@@ -433,6 +513,305 @@ class MindDaemonDashboard {
         this.trendsChart.data.datasets[3].data.push(scores.St);
 
         this.trendsChart.update('none'); // Smooth update without animation
+    }
+
+    updateStateHistory(currentState) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+
+        // Remove old data if we have more than 20 points
+        if (this.stateHistoryChart.data.labels.length >= 20) {
+            this.stateHistoryChart.data.labels.shift();
+            this.stateHistoryChart.data.datasets[0].data.shift();
+        }
+
+        // Add new data
+        this.stateHistoryChart.data.labels.push(timeStr);
+        this.stateHistoryChart.data.datasets[0].data.push(currentState);
+
+        this.stateHistoryChart.update('none'); // Smooth update without animation
+    }
+
+    initAlgorithmTrendsChart() {
+        const ctx = document.getElementById('algorithmTrendsChart').getContext('2d');
+        
+        this.algorithmTrendsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'FAA Z-Score',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Theta Z-Score',
+                        data: [],
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '参与度指数',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y1'
+                    },
+                    {
+                        label: '疲劳指数',
+                        data: [],
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#cbd5e1'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            color: '#475569'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Z-Score',
+                            color: '#cbd5e1'
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            color: '#475569'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: '指数',
+                            color: '#cbd5e1'
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                            color: '#475569'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    updateAlgorithmAnalysis(algorithmData) {
+        if (!algorithmData) return;
+
+        // 更新临床分析
+        if (algorithmData.clinical_analysis) {
+            const clinical = algorithmData.clinical_analysis;
+            
+            // 更新临床状态
+            const clinicalState = document.getElementById('clinical-state');
+            if (clinicalState) {
+                clinicalState.textContent = clinical.state || 'UNKNOWN';
+                // 根据状态设置颜色
+                if (clinical.state && clinical.state.includes('HIGH_DEPRESSIVE_RISK')) {
+                    clinicalState.style.color = 'var(--error-color)';
+                } else if (clinical.state && clinical.state.includes('MODERATE_DEPRESSIVE_RISK')) {
+                    clinicalState.style.color = 'var(--warning-color)';
+                } else {
+                    clinicalState.style.color = 'var(--success-color)';
+                }
+            }
+
+            // 更新FAA Z-Score
+            const faaScore = document.getElementById('faa-z-score');
+            const faaFill = document.getElementById('faa-fill');
+            if (faaScore && clinical.faa_z_score !== undefined) {
+                faaScore.textContent = clinical.faa_z_score.toFixed(2);
+                // 将Z-score转换为百分比显示(限制在0-100%)
+                const faaPercent = Math.max(0, Math.min(100, (clinical.faa_z_score + 3) * 16.67)); // -3到+3映射到0-100%
+                faaFill.style.width = `${faaPercent}%`;
+                
+                if (clinical.faa_z_score > 2.5) {
+                    faaFill.style.background = 'linear-gradient(90deg, var(--error-color), #dc2626)';
+                } else if (clinical.faa_z_score > 2.0) {
+                    faaFill.style.background = 'linear-gradient(90deg, var(--warning-color), #f97316)';
+                } else {
+                    faaFill.style.background = 'linear-gradient(90deg, var(--success-color), #059669)';
+                }
+            }
+
+            // 更新Theta Z-Score
+            const thetaScore = document.getElementById('theta-z-score');
+            const thetaFill = document.getElementById('theta-fill');
+            if (thetaScore && clinical.theta_z_score !== undefined) {
+                thetaScore.textContent = clinical.theta_z_score.toFixed(2);
+                const thetaPercent = Math.max(0, Math.min(100, (clinical.theta_z_score + 3) * 16.67));
+                thetaFill.style.width = `${thetaPercent}%`;
+                
+                if (clinical.theta_z_score > 2.5) {
+                    thetaFill.style.background = 'linear-gradient(90deg, var(--error-color), #dc2626)';
+                } else if (clinical.theta_z_score > 2.0) {
+                    thetaFill.style.background = 'linear-gradient(90deg, var(--warning-color), #f97316)';
+                } else {
+                    thetaFill.style.background = 'linear-gradient(90deg, var(--success-color), #059669)';
+                }
+            }
+
+            // 更新临床详情
+            const clinicalDetails = document.getElementById('clinical-details');
+            if (clinicalDetails && clinical.details) {
+                clinicalDetails.textContent = clinical.details;
+            }
+        }
+
+        // 更新认知分析
+        if (algorithmData.cognitive_analysis) {
+            const cognitive = algorithmData.cognitive_analysis;
+            
+            // 更新认知状态
+            const cognitiveState = document.getElementById('cognitive-state');
+            if (cognitiveState) {
+                cognitiveState.textContent = cognitive.state || 'UNKNOWN';
+                // 根据状态设置颜色
+                if (cognitive.state === 'FATIGUE_DROWSINESS') {
+                    cognitiveState.style.color = 'var(--error-color)';
+                } else if (cognitive.state === 'HIGH_ENGAGEMENT_EXCITEMENT') {
+                    cognitiveState.style.color = 'var(--success-color)';
+                } else if (cognitive.state === 'RELAXED_IDLE') {
+                    cognitiveState.style.color = 'var(--primary-color)';
+                } else {
+                    cognitiveState.style.color = 'var(--text-color)';
+                }
+            }
+
+            // 更新参与度指数
+            const engagementIndex = document.getElementById('engagement-index');
+            const engagementFill = document.getElementById('engagement-fill');
+            if (engagementIndex && cognitive.engagement_index !== undefined) {
+                engagementIndex.textContent = cognitive.engagement_index.toFixed(2);
+                // 将指数转换为百分比 (假设0-3的范围)
+                const engagementPercent = Math.max(0, Math.min(100, cognitive.engagement_index * 33.33));
+                engagementFill.style.width = `${engagementPercent}%`;
+                
+                if (cognitive.engagement_index > 1.8) {
+                    engagementFill.style.background = 'linear-gradient(90deg, var(--success-color), #059669)';
+                } else if (cognitive.engagement_index < 0.6) {
+                    engagementFill.style.background = 'linear-gradient(90deg, var(--primary-color), #0ea5e9)';
+                } else {
+                    engagementFill.style.background = 'linear-gradient(90deg, var(--warning-color), #f97316)';
+                }
+            }
+
+            // 更新疲劳指数
+            const fatigueIndex = document.getElementById('fatigue-index');
+            const fatigueFill = document.getElementById('fatigue-fill');
+            if (fatigueIndex && cognitive.fatigue_index !== undefined) {
+                fatigueIndex.textContent = cognitive.fatigue_index.toFixed(2);
+                // 将指数转换为百分比 (假设0-2的范围)
+                const fatiguePercent = Math.max(0, Math.min(100, cognitive.fatigue_index * 50));
+                fatigueFill.style.width = `${fatiguePercent}%`;
+                
+                if (cognitive.fatigue_index > 1.2) {
+                    fatigueFill.style.background = 'linear-gradient(90deg, var(--error-color), #dc2626)';
+                } else {
+                    fatigueFill.style.background = 'linear-gradient(90deg, var(--success-color), #059669)';
+                }
+            }
+
+            // 更新认知详情
+            const cognitiveDetails = document.getElementById('cognitive-details');
+            if (cognitiveDetails && cognitive.details) {
+                cognitiveDetails.textContent = cognitive.details;
+            }
+        }
+
+        // 更新算法趋势图表
+        this.updateAlgorithmTrendsChart(algorithmData);
+    }
+
+    updateAdvancedAlgorithmAnalysis(clinicalAnalysis, cognitiveAnalysis) {
+        // 此函数处理来自advanced数据的算法分析
+        // 目前clinical_analysis和cognitive_analysis已经通过basic.algorithm_analysis处理
+        // 这里可以添加额外的高级分析处理逻辑
+        console.log('Advanced algorithm analysis updated:', { clinicalAnalysis, cognitiveAnalysis });
+    }
+
+    updateAlgorithmTrendsChart(algorithmData) {
+        if (!this.algorithmTrendsChart || !algorithmData) return;
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+
+        // 移除旧数据（保持最近20个数据点）
+        if (this.algorithmTrendsChart.data.labels.length >= 20) {
+            this.algorithmTrendsChart.data.labels.shift();
+            this.algorithmTrendsChart.data.datasets.forEach(dataset => {
+                dataset.data.shift();
+            });
+        }
+
+        // 添加新数据
+        this.algorithmTrendsChart.data.labels.push(timeStr);
+        
+        // FAA Z-Score
+        const faaZScore = algorithmData.clinical_analysis?.faa_z_score || 0;
+        this.algorithmTrendsChart.data.datasets[0].data.push(faaZScore);
+        
+        // Theta Z-Score  
+        const thetaZScore = algorithmData.clinical_analysis?.theta_z_score || 0;
+        this.algorithmTrendsChart.data.datasets[1].data.push(thetaZScore);
+        
+        // 参与度指数
+        const engagementIndex = algorithmData.cognitive_analysis?.engagement_index || 0;
+        this.algorithmTrendsChart.data.datasets[2].data.push(engagementIndex);
+        
+        // 疲劳指数
+        const fatigueIndex = algorithmData.cognitive_analysis?.fatigue_index || 0;
+        this.algorithmTrendsChart.data.datasets[3].data.push(fatigueIndex);
+
+        this.algorithmTrendsChart.update('none'); // 平滑更新无动画
     }
 }
 

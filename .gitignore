@@ -1,22 +1,106 @@
-.DS_store
-venv
-.venv
-python_demo/
-.env
+# Mind Daemon 项目 .gitignore 配置
+
+# =========================
+# Python
+# =========================
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pdb
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
-CLAUDE.md
-Analyse.md
-DEMO_GUIDE.md
-.python-version
-uv.lock
-test*
-Agent/
-BCI/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# uv (Python package manager)
+.uv/
+.uv-cache/
+
+# =========================
+# IDEs and Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =========================
+# 系统文件
+# =========================
+.DS_Store
+.DS_store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.stackdump
+
+# =========================
+# 配置和密钥
+# =========================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+config.json
+secrets.json
+credentials.json
+*.key
+*.pem
+*.crt
+
+# =========================
+# 数据和日志文件
+# =========================
+data/
+logs/
+*.log
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+append_logs/
+bci_data/
+eeg_data/
+recordings/
+websocket.log
+http_server.log
+
+# =========================
+# 音频文件（保留项目需要的音乐文件）
+# =========================
+# music/ 目录下的音乐文件应该被保留
+# 但可以排除临时音频文件
+*.temp.mp3
+*.temp.wav
+
+# =========================
+# Legacy 目录（已废弃）
+# =========================
 MCP_for_Agent/
 # peripheral/
 *.csv
@@ -25,3 +109,33 @@ MCP_for_Agent/
 .claude/
 dashboard/node_modiles
 dashboard/.vite
+dashboard/dist
+
+# =========================
+# 工具和缓存
+# =========================
+.claude/
+.python-version
+.pytest_cache/
+.coverage
+.cache/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# =========================
+# 部署和文档
+# =========================
+docs/_build/
+site/
+
+# =========================
+# 验证脚本（开发工具）
+# =========================
+verify_llm_usage.py
+test_minimax_api.py
+minimax_sdk_example.py
+test_halo_effects.py
+test_halo_effects_demo.html

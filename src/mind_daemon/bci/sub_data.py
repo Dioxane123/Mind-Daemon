@@ -1,4 +1,4 @@
-from cortex import Cortex
+from .cortex import Cortex
 import pdb
 
 class Subcribe():

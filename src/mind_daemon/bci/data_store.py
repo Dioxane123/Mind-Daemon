@@ -1,5 +1,42 @@
-from cortex import Cortex
-from sub_data import Subcribe
+try:
+    from .cortex import Cortex
+    from .sub_data import Subcribe
+except ImportError:
+    # 当直接运行此文件时的fallback导入
+    import sys
+    import os
+    
+    # 当前文件所在目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # 尝试从同一目录导入
+    try:
+        sys.path.insert(0, current_dir)
+        from cortex import Cortex
+        from sub_data import Subcribe
+        print("使用同目录导入成功")
+    except ImportError:
+        # 尝试从项目根目录导入  
+        try:
+            # 查找项目根目录（包含src目录的目录）
+            project_root = current_dir
+            while project_root != os.path.dirname(project_root):
+                if os.path.exists(os.path.join(project_root, 'src')):
+                    break
+                project_root = os.path.dirname(project_root)
+            
+            src_dir = os.path.join(project_root, 'src')
+            if os.path.exists(src_dir):
+                sys.path.insert(0, src_dir)
+                from mind_daemon.bci.cortex import Cortex
+                from mind_daemon.bci.sub_data import Subcribe
+                print("使用项目根目录导入成功")
+            else:
+                raise ImportError("找不到src目录")
+        except ImportError as e:
+            print(f"所有导入方式均失败: {e}")
+            print("建议使用: uv run python -m mind_daemon.bci.data_store")
+            sys.exit(1)
 import time
 import csv
 import os
