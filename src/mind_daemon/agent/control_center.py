@@ -6,7 +6,7 @@ Mind Daemon - 精神状态分析与智能干预系统主程序
 2. Task 2: LLM深度精神状态分析与总结
 3. Task 3: MiniMax智能体的阈值行为决策
 
-作者：Mind Daemon Project
+作者：MiniMax
 """
 
 import os

@@ -8,7 +8,7 @@ Task 3: MiniMax智能体 - 基于阈值和经验的行为决策系统
 - 支持MCP服务调用
 - 提供用户通知和建议
 
-作者：Mind Daemon Project
+作者：MiniMax
 """
 
 import os

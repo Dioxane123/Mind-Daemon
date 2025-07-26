@@ -3,7 +3,13 @@
 import threading
 import time
 from typing import Optional, Callable, Dict, Any
-from .socket_client import SocketClient
+try:
+    from .socket_client import SocketClient
+except ImportError:
+    import sys
+    import os
+    sys.path.append(os.path.dirname(__file__))
+    from socket_client import SocketClient
 
 # 手势映射表
 GESTURE_MAP = {
@@ -56,7 +62,13 @@ class EnhancedGestureDetector:
         print("✅ 开始手势检测监控")
 """Gesture detection using development board and camera - placeholder."""
 
-from config import SSHConfig, remote_config
+try:
+    from .config import SSHConfig, remote_config
+except ImportError:
+    import sys
+    import os
+    sys.path.append(os.path.dirname(__file__))
+    from config import SSHConfig, remote_config
 
 import paramiko
 import time

@@ -8,7 +8,7 @@
 - 平滑过渡和渐变效果
 - 音乐自动选择和播放
 
-作者：Mind Daemon Project
+作者：MiniMax
 """
 
 import os

@@ -89,6 +89,11 @@ class MindDaemonDashboard {
             if (data.basic.algorithm_analysis) {
                 this.updateAlgorithmAnalysis(data.basic.algorithm_analysis);
             }
+            
+            // 更新手势识别数据
+            if (data.basic.gesture_detection) {
+                this.updateGestureDetection(data.basic.gesture_detection);
+            }
         }
         
         if (data && data.advanced) {
@@ -235,6 +240,103 @@ class MindDaemonDashboard {
                 }
             }
         });
+    }
+
+    updateGestureDetection(gestureData) {
+        // Update gesture detection status and data
+        const gestureStatus = document.getElementById('gesture-status');
+        const serviceStatus = document.getElementById('gesture-service-status');
+        const connectionStatus = document.getElementById('gesture-connection-status');
+        const lastDetected = document.getElementById('gesture-last-detected');
+        const confidence = document.getElementById('gesture-confidence');
+        const sshStatus = document.getElementById('ssh-status');
+        const socketStatus = document.getElementById('socket-status');
+
+        // Update service status
+        if (gestureData.service_enabled) {
+            gestureStatus.className = 'status-indicator on';
+            serviceStatus.textContent = '已启用';
+            serviceStatus.style.color = 'var(--success-color)';
+        } else {
+            gestureStatus.className = 'status-indicator off';
+            serviceStatus.textContent = '未启用';
+            serviceStatus.style.color = 'var(--error-color)';
+        }
+
+        // Update connection status
+        const statusMapping = {
+            'connected': { text: '已连接', color: 'var(--success-color)' },
+            'ssh_connected': { text: 'SSH已连接', color: 'var(--warning-color)' },
+            'disconnected': { text: '已断开', color: 'var(--error-color)' },
+            'disabled': { text: '未启用', color: 'var(--muted-color)' }
+        };
+
+        const statusConfig = statusMapping[gestureData.connection_status] || statusMapping['disconnected'];
+        connectionStatus.textContent = statusConfig.text;
+        connectionStatus.style.color = statusConfig.color;
+
+        // Update SSH status
+        if (gestureData.ssh_connected) {
+            sshStatus.textContent = '已连接';
+            sshStatus.style.color = 'var(--success-color)';
+        } else {
+            sshStatus.textContent = '未连接';
+            sshStatus.style.color = 'var(--error-color)';
+        }
+
+        // Update Socket status
+        if (gestureData.socket_connected) {
+            socketStatus.textContent = '已连接';
+            socketStatus.style.color = 'var(--success-color)';
+        } else {
+            socketStatus.textContent = '未连接';
+            socketStatus.style.color = 'var(--error-color)';
+        }
+
+        // Update last detected gesture
+        if (gestureData.last_gesture && gestureData.last_gesture.gestures && gestureData.last_gesture.gestures.length > 0) {
+            const gesture = gestureData.last_gesture.gestures[0];
+            const gestureMapping = {
+                'ThumbUp': '👍 竖起大拇指',
+                'Victory': '✌️ V手势',
+                'Mute': '🤫 嘘声手势',
+                'Palm': '🖐️ 手掌',
+                'Okay': '👌 OK手势',
+                'ThumbLeft': '👈 大拇指向左',
+                'ThumbRight': '👉 大拇指向右',
+                'Awesome': '🤟 666手势'
+            };
+
+            const gestureText = gestureMapping[gesture.name] || gesture.name;
+            lastDetected.textContent = gestureText;
+            lastDetected.style.color = 'var(--primary-color)';
+
+            // Update confidence
+            if (typeof gesture.confidence === 'number') {
+                confidence.textContent = `${(gesture.confidence * 100).toFixed(1)}%`;
+                confidence.style.color = gesture.confidence > 0.7 ? 'var(--success-color)' : 
+                                       gesture.confidence > 0.4 ? 'var(--warning-color)' : 'var(--error-color)';
+            } else {
+                confidence.textContent = '--';
+                confidence.style.color = 'var(--muted-color)';
+            }
+
+            // Animate the gesture detection card briefly
+            const gestureCard = document.querySelector('.gesture-card');
+            if (gestureCard) {
+                gestureCard.style.transform = 'scale(1.02)';
+                gestureCard.style.boxShadow = '0 8px 32px rgba(59, 130, 246, 0.3)';
+                setTimeout(() => {
+                    gestureCard.style.transform = 'scale(1)';
+                    gestureCard.style.boxShadow = '';
+                }, 500);
+            }
+        } else {
+            lastDetected.textContent = '无';
+            lastDetected.style.color = 'var(--muted-color)';
+            confidence.textContent = '--';
+            confidence.style.color = 'var(--muted-color)';
+        }
     }
 
     updateAdvancedData(data) {

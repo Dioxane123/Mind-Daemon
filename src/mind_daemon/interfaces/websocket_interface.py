@@ -30,6 +30,7 @@ from ..analyzers.state_analyzer import StateAnalyzer, MentalState, StateAnalysis
 from ..analyzers.llm_analyzer import LLMAnalyzer, LLMAnalysisResult
 from ..agent.environment_agent import EnvironmentAgent
 from ..bci.data_stream_service import get_data_stream_service
+from ..detect.gesture_api import create_gesture_api
 # from ..utils.config import config  # 已替换为直接使用环境变量
 
 # 配置日志
@@ -44,6 +45,7 @@ class BasicParams:
     curtain: Dict[str, Any]
     Scores: Dict[str, int]  # 注意大写S
     algorithm_analysis: Dict[str, Any]  # 算法分析结果
+    gesture_detection: Dict[str, Any]  # 手势识别状态和结果
     timestamp: str
 
 @dataclass 
@@ -78,6 +80,18 @@ class WebSocketInterface:
         self.environment_agent = EnvironmentAgent()
         self.data_stream_service = get_data_stream_service()
         
+        # 手势识别API
+        self.gesture_api = None
+        self.gesture_enabled = False
+        self.latest_gesture_status = {
+            "service_enabled": False,
+            "connection_status": "disconnected",
+            "ssh_connected": False,
+            "socket_connected": False,
+            "last_gesture": None,
+            "service_status": "stopped"
+        }
+        
         # 状态变量
         self.last_basic_params: Optional[BasicParams] = None
         self.last_advanced_params: Optional[AdvancedParams] = None
@@ -93,6 +107,9 @@ class WebSocketInterface:
         
         # 注册BCI数据流回调
         self.data_stream_service.add_data_callback(self._on_bci_data_update)
+        
+        # 初始化手势识别
+        self._init_gesture_detection()
         
         logger.info(f"WebSocket接口初始化完成 - {host}:{port}")
 
@@ -177,6 +194,72 @@ class WebSocketInterface:
             
         except Exception as e:
             logger.error(f"BCI数据更新回调失败: {e}")
+    
+    def _init_gesture_detection(self):
+        """初始化手势识别API"""
+        try:
+            # 检查是否启用手势识别
+            gesture_enabled = os.getenv('GESTURE_DETECTION_ENABLED', 'false').lower() == 'true'
+            
+            if gesture_enabled:
+                logger.info("🚀 初始化封装的手势识别API...")
+                
+                # 创建手势识别API实例，设置回调函数
+                self.gesture_api = create_gesture_api(self._on_gesture_detected)
+                self.gesture_enabled = True
+                
+                # 启动API（执行完整的操作1→操作6→socket实时接收流程）
+                if self.gesture_api.start():
+                    # 获取API状态并更新本地状态
+                    api_status = self.gesture_api.get_status()
+                    self._update_gesture_status(api_status)
+                    logger.info("✅ 手势识别API启动成功")
+                else:
+                    logger.error("❌ 手势识别API启动失败")
+                    self.gesture_enabled = False
+            else:
+                logger.info("手势识别功能未启用")
+                
+        except Exception as e:
+            logger.error(f"❌ 手势识别API初始化失败: {e}")
+            self.gesture_enabled = False
+    
+    def _on_gesture_detected(self, gesture_data: Dict[str, Any]):
+        """手势检测回调函数"""
+        try:
+            logger.info(f"🎯 WebSocket接收到手势数据: {gesture_data}")
+            self.latest_gesture_status["last_gesture"] = gesture_data
+            
+            # 这里可以添加额外的手势处理逻辑
+            # 比如触发特定的系统动作
+            
+        except Exception as e:
+            logger.error(f"❌ 手势回调处理失败: {e}")
+    
+    def _update_gesture_status(self, api_status: Dict[str, Any]):
+        """更新手势识别状态"""
+        self.latest_gesture_status.update({
+            "service_enabled": self.gesture_enabled,
+            "ssh_connected": api_status.get("ssh_connected", False),
+            "socket_connected": api_status.get("socket_connected", False),
+            "service_status": "running" if api_status.get("service_running", False) else "stopped",
+            "connection_status": "connected" if api_status.get("socket_connected", False) else "disconnected"
+        })
+    
+    def _update_gesture_status_periodically(self):
+        """定期更新手势识别状态"""
+        while self.running and self.gesture_enabled and self.gesture_api:
+            try:
+                # 从API获取最新状态
+                api_status = self.gesture_api.get_status()
+                self._update_gesture_status(api_status)
+                
+                # 每10秒更新一次状态
+                time.sleep(10)
+                
+            except Exception as e:
+                logger.error(f"❌ 状态更新错误: {e}")
+                time.sleep(10)
 
     def generate_basic_params(self) -> BasicParams:
         """生成基础参数"""
@@ -193,6 +276,7 @@ class WebSocketInterface:
                 curtain=env_state["curtain"],
                 Scores=scores,
                 algorithm_analysis=self.latest_algorithm_analysis.copy(),
+                gesture_detection=self.latest_gesture_status.copy(),
                 timestamp=datetime.now().isoformat()
             )
             
@@ -205,6 +289,14 @@ class WebSocketInterface:
                 curtain={"state": 0},
                 Scores={"At": 50, "Ex": 50, "Re": 50, "St": 50},
                 algorithm_analysis={},  # 默认空的算法分析
+                gesture_detection={
+                    "service_enabled": False,
+                    "connection_status": "disabled",
+                    "ssh_connected": False,
+                    "socket_connected": False,
+                    "last_gesture": None,
+                    "service_status": "disabled"
+                },
                 timestamp=datetime.now().isoformat()
             )
 
@@ -372,6 +464,12 @@ class WebSocketInterface:
             self.data_thread = threading.Thread(target=self.data_generation_loop, daemon=True)
             self.data_thread.start()
             
+            # 启动手势状态更新线程（如果启用）
+            if self.gesture_enabled:
+                status_thread = threading.Thread(target=self._update_gesture_status_periodically, daemon=True)
+                status_thread.start()
+                logger.info("手势识别状态更新线程已启动")
+            
             # 启动数据广播循环
             broadcast_task = asyncio.create_task(self.data_broadcast_loop())
             
@@ -395,6 +493,14 @@ class WebSocketInterface:
             self.data_stream_service.stop_service()
         except Exception as e:
             logger.error(f"BCI数据流服务停止失败: {e}")
+        
+        # 清理手势识别API资源
+        try:
+            if self.gesture_api:
+                self.gesture_api.stop()
+                logger.info("手势识别API已停止")
+        except Exception as e:
+            logger.error(f"手势识别API清理失败: {e}")
         
         # 清理环境智能体
         try:
