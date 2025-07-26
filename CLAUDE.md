@@ -1,3 +1,5 @@
+# RULE
+禁止修改detect文件夹目录
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

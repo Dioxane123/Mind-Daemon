@@ -19,6 +19,10 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 import logging
+from dotenv import load_dotenv
+
+# 加载项目根目录的.env文件
+load_dotenv()
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -64,25 +68,23 @@ class LLMAnalyzer:
         初始化LLM分析器
         
         Args:
-            data_dir: CSV数据目录
+            data_dir: CSV数据目录，默认从.env文件读取DATA_PATH
             llm_config: LLM配置，包含API endpoint, key等
         """
         if data_dir is None:
-            # 查找项目根目录下的append_logs
-            current_dir = os.path.dirname(__file__)
-            # 向上查找，直到找到包含append_logs的目录
-            project_root = current_dir
-            while project_root != os.path.dirname(project_root):
-                append_logs_path = os.path.join(project_root, 'append_logs')
-                if os.path.exists(append_logs_path):
-                    data_dir = append_logs_path
-                    break
-                project_root = os.path.dirname(project_root)
+            # 从环境变量读取数据目录路径
+            data_path = os.getenv('DATA_PATH', './data')
+            # 如果是相对路径，从当前工作目录解析
+            if not os.path.isabs(data_path):
+                data_dir = os.path.abspath(data_path)
             else:
-                # 如果没找到，使用默认位置
-                data_dir = os.path.join(os.path.dirname(__file__), 'append_logs')
+                data_dir = data_path
         
         self.data_dir = data_dir
+        
+        # 确保数据目录存在
+        if not os.path.exists(self.data_dir):
+            logger.warning(f"数据目录不存在: {self.data_dir}")
         self.llm_config = llm_config or {}
         
         # 默认分析时间窗口 (分钟)
@@ -104,10 +106,14 @@ class LLMAnalyzer:
             window_minutes = self.default_analysis_window
             
         try:
+            # 检查数据目录是否存在
+            if not os.path.exists(self.data_dir):
+                raise FileNotFoundError(f"数据目录不存在: {self.data_dir}")
+            
             # 加载最新的met数据
             met_files = [f for f in os.listdir(self.data_dir) if f.startswith('met_') and f.endswith('.csv')]
             if not met_files:
-                raise FileNotFoundError("未找到met数据文件")
+                raise FileNotFoundError(f"在目录 {self.data_dir} 中未找到met数据文件")
             
             latest_met = sorted(met_files)[-1]
             met_path = os.path.join(self.data_dir, latest_met)
@@ -296,11 +302,9 @@ class LLMAnalyzer:
     def _call_minimax_api(self, prompt: str) -> str:
         """调用MiniMax API"""
         try:
-            # 导入配置系统
-            from ..utils.config import config
-            
-            api_key = config.get('MINIMAX_API_KEY')
-            base_url = config.get('MINIMAX_BASE_URL')
+            # 从环境变量读取API配置
+            api_key = os.getenv('MINIMAX_API_KEY')
+            base_url = os.getenv('MINIMAX_BASE_URL')
             
             if not api_key or not base_url:
                 logger.warning("MiniMax API未配置，使用模拟响应")
@@ -312,7 +316,7 @@ class LLMAnalyzer:
             }
             
             data = {
-                'model': config.get('MINIMAX_MODEL', 'MiniMax-Text-01'),
+                'model': os.getenv('MINIMAX_MODEL', 'MiniMax-Text-01'),
                 'messages': [
                     {
                         'role': 'user',
@@ -352,10 +356,8 @@ class LLMAnalyzer:
     def _call_openai_api(self, prompt: str) -> str:
         """调用OpenAI API"""
         try:
-            # 导入配置系统
-            from ..utils.config import config
-            
-            api_key = config.get('OPENAI_API_KEY')
+            # 从环境变量读取API配置
+            api_key = os.getenv('OPENAI_API_KEY')
             
             if not api_key:
                 logger.warning("OpenAI API未配置，使用模拟响应")
@@ -367,7 +369,7 @@ class LLMAnalyzer:
             }
             
             data = {
-                'model': config.get('OPENAI_MODEL', 'gpt-3.5-turbo'),
+                'model': os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo'),
                 'messages': [
                     {
                         'role': 'user',

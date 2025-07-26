@@ -19,13 +19,18 @@ from typing import Dict, Any, Optional, Set
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 import logging
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 导入其他模块
 from ..analyzers.state_analyzer import StateAnalyzer, MentalState, StateAnalysisResult
 from ..analyzers.llm_analyzer import LLMAnalyzer, LLMAnalysisResult
 from ..agent.environment_agent import EnvironmentAgent
 from ..bci.data_stream_service import get_data_stream_service
-from ..utils.config import config
+# from ..utils.config import config  # 已替换为直接使用环境变量
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -54,16 +59,16 @@ class AdvancedParams:
 class WebSocketInterface:
     """WebSocket接口服务器"""
     
-    def __init__(self, host: str = "localhost", port: int = 8889):
+    def __init__(self, host: str = None, port: int = None):
         """
         初始化WebSocket接口
         
         Args:
-            host: 服务器主机地址
-            port: 服务器端口
+            host: 服务器主机地址，默认从环境变量读取
+            port: 服务器端口，默认从环境变量读取
         """
-        self.host = host
-        self.port = port
+        self.host = host or os.getenv('WEBSOCKET_HOST', 'localhost')
+        self.port = port or int(os.getenv('WEBSOCKET_PORT', '8889'))
         self.clients = set()
         self.running = False
         

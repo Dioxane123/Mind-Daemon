@@ -10,9 +10,13 @@ import sys
 import os
 import time
 import json
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 添加src到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 async def test_data_stream_service():
     """测试BCI数据流服务"""
