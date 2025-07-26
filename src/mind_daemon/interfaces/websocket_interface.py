@@ -38,6 +38,7 @@ class BasicParams:
     music: Dict[str, Any] 
     curtain: Dict[str, Any]
     Scores: Dict[str, int]  # 注意大写S
+    algorithm_analysis: Dict[str, Any]  # 算法分析结果
     timestamp: str
 
 @dataclass 
@@ -46,6 +47,8 @@ class AdvancedParams:
     State: str  # 注意大写S
     Summary: str  # 注意大写S
     Action: str  # 注意大写A
+    clinical_analysis: Dict[str, Any]  # 临床分析详情
+    cognitive_analysis: Dict[str, Any]  # 认知分析详情
     timestamp: str
 
 class WebSocketInterface:
@@ -77,6 +80,7 @@ class WebSocketInterface:
         
         # BCI实时数据缓存
         self.latest_bci_scores = {"At": 50, "Ex": 50, "Re": 50, "St": 50}
+        self.latest_algorithm_analysis = {}  # 存储最新的算法分析结果
         self.bci_data_updated = False
         
         # 数据发送线程
@@ -147,14 +151,25 @@ class WebSocketInterface:
         """BCI数据更新回调函数"""
         try:
             scores = data.get('scores', {})
+            algorithm_analysis = data.get('algorithm_analysis', {})
+            
             logger.info(f"收到BCI数据回调: {data.keys()}")
             logger.info(f"提取的分数: {scores}")
+            
             if scores:
                 self.latest_bci_scores = scores.copy()
                 self.bci_data_updated = True
                 logger.info(f"BCI分数已更新: At={scores.get('At')} Ex={scores.get('Ex')} Re={scores.get('Re')} St={scores.get('St')}")
             else:
                 logger.warning("BCI数据包中没有scores字段")
+            
+            # 更新算法分析结果
+            if algorithm_analysis:
+                self.latest_algorithm_analysis = algorithm_analysis.copy()
+                clinical_state = algorithm_analysis.get('clinical_analysis', {}).get('state', 'Unknown')
+                cognitive_state = algorithm_analysis.get('cognitive_analysis', {}).get('state', 'Unknown')
+                logger.info(f"算法分析已更新: Clinical={clinical_state}, Cognitive={cognitive_state}")
+            
         except Exception as e:
             logger.error(f"BCI数据更新回调失败: {e}")
 
@@ -172,6 +187,7 @@ class WebSocketInterface:
                 music=env_state["music"],
                 curtain=env_state["curtain"],
                 Scores=scores,
+                algorithm_analysis=self.latest_algorithm_analysis.copy(),
                 timestamp=datetime.now().isoformat()
             )
             
@@ -183,6 +199,7 @@ class WebSocketInterface:
                 music={"is_playing": True, "name": "Default", "type": "Relaxing"},
                 curtain={"state": 0},
                 Scores={"At": 50, "Ex": 50, "Re": 50, "St": 50},
+                algorithm_analysis={},  # 默认空的算法分析
                 timestamp=datetime.now().isoformat()
             )
 
@@ -229,10 +246,16 @@ class WebSocketInterface:
             
             action = action_mapping.get(state_result.state, "Environment Adjustment")
             
+            # 提取算法分析结果
+            clinical_analysis = self.latest_algorithm_analysis.get('clinical_analysis', {})
+            cognitive_analysis = self.latest_algorithm_analysis.get('cognitive_analysis', {})
+            
             return AdvancedParams(
                 State=state_result.state.name if hasattr(state_result.state, 'name') else str(state_result.state),
                 Summary=summary,
                 Action=action,
+                clinical_analysis=clinical_analysis,
+                cognitive_analysis=cognitive_analysis,
                 timestamp=datetime.now().isoformat()
             )
             
@@ -243,6 +266,8 @@ class WebSocketInterface:
                 State="Neutral",
                 Summary="系统正在分析用户状态，请稍候...",
                 Action="Monitoring",
+                clinical_analysis={},  # 默认空的临床分析
+                cognitive_analysis={},  # 默认空的认知分析
                 timestamp=datetime.now().isoformat()
             )
 

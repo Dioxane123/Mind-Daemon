@@ -1,1 +1,0 @@
-/Users/m3airmima0000/Mind-Daemon/.venv/bin/python3: Error while finding module specification for 'src.mind_daemon.interfaces.websocket_interface' (ModuleNotFoundError: No module named 'src')

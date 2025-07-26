@@ -65,8 +65,9 @@ class Config:
             
             # LLM Configuration
             'MINIMAX_API_KEY': '',
-            'MINIMAX_BASE_URL': 'https://api.minimax.chat/v1/text/chatcompletion_v2',
-            'MINIMAX_MODEL': 'abab6.5s-chat',
+            'MINIMAX_BASE_URL': 'https://api.minimaxi.com/v1/text/chatcompletion_v2',
+            'MINIMAX_MODEL': 'MiniMax-Text-01',
+            'MINIMAX_GROUP_ID': '',
             'OPENAI_API_KEY': '',
             'OPENAI_MODEL': 'gpt-3.5-turbo',
             

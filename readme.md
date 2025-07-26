@@ -46,6 +46,7 @@ Mind-Daemon/
 ├── music/                     # 背景音乐
 │   ├── focus/                # 专注音乐
 │   └── relax/                # 放松音乐
+├── tests/                     # 测试文件目录
 ├── .env.example              # 配置模板
 ├── pyproject.toml            # 项目配置
 └── README.md                 # 本文档
@@ -96,17 +97,63 @@ nano .env
 EMOTIV_CLIENT_ID=your_client_id
 EMOTIV_CLIENT_SECRET=your_client_secret
 
-# LLM API配置 (用于智能决策)
-MINIMAX_API_KEY=your_minimax_key
+# MiniMax LLM API配置 (用于智能决策)
+# 在 https://api.minimaxi.com 获取API密钥 (JWT token格式)
+MINIMAX_API_KEY=your_minimax_api_key_here
+MINIMAX_GROUP_ID=your_group_id_here
+MINIMAX_MODEL=MiniMax-Text-01
 
 # 开发模式 (无BCI设备时启用)
 DEV_MODE=true
 
-# 系统路径 (通常不需要修改)
-MUSIC_DIR=/path/to/Mind-Daemon/music
+# 系统路径 (使用项目相对路径)
+MUSIC_DIR=music
+WINDOW_PY_PATH=src/mind_daemon/peripheral/window.py
 ```
 
-### 4. 启动系统
+### 4. MiniMax API配置
+
+系统使用MiniMax API进行智能决策，需要正确配置API密钥：
+
+**获取MiniMax API密钥：**
+1. 访问 [MiniMax AI开放平台](https://api.minimaxi.com)
+2. 注册账户并完成实名认证
+3. 在 `账户管理 > 接口密钥` 中创建API密钥
+4. 复制API密钥（JWT格式，以`eyJhbGciOiJSUzI1NiI`开头）
+
+**支持的模型：**
+- `MiniMax-M1`: 推理模型，输出token较多，建议流式输出
+- `MiniMax-Text-01`: 文本模型，适合结构化输出（推荐）
+
+**API测试：**
+```bash
+# 测试MiniMax API连接
+python test_minimax_api.py
+```
+
+### 5. 系统健康检查
+
+在启动系统前，建议运行健康检查确保所有组件正常：
+
+```bash
+# 运行完整的系统健康检查
+uv run python -m mind_daemon.utils.health_check
+
+# 查看详细检查结果
+uv run python -m mind_daemon.utils.health_check --verbose
+
+# 生成JSON格式报告
+uv run python -m mind_daemon.utils.health_check --json
+```
+
+健康检查将验证：
+- 🔑 LLM API配置和连接状态
+- 📁 数据目录权限和结构
+- 🎵 音乐文件完整性
+- 🌈 外设控制程序可用性
+- 🌐 网络连接状态
+
+### 6. 启动系统
 
 **启动后端服务:**
 ```bash
@@ -207,9 +254,13 @@ uv run mind-daemon
 
 ## 🧪 测试系统
 
-**运行集成测试:**
+**运行系统测试:**
 ```bash
-uv run python test_integration.py
+# 测试MiniMax API连接
+python test_minimax_api.py
+
+# 运行完整测试套件
+uv run python tests/test_system.py
 ```
 
 **测试WebSocket连接:**
@@ -217,8 +268,8 @@ uv run python test_integration.py
 # 先启动服务器
 uv run mind-daemon
 
-# 在另一个终端测试连接
-uv run python test_integration.py --test-websocket
+# 在另一个终端测试前端连接
+open dashboard/index.html
 ```
 
 **测试输出示例:**

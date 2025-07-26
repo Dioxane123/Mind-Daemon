@@ -295,16 +295,114 @@ class LLMAnalyzer:
 
     def _call_minimax_api(self, prompt: str) -> str:
         """调用MiniMax API"""
-        # 这里可以实现MiniMax API的具体调用逻辑
-        # 现在先返回模拟响应
-        logger.info("调用MiniMax API（当前为模拟模式）")
-        return self._generate_mock_response(prompt)
+        try:
+            # 导入配置系统
+            from ..utils.config import config
+            
+            api_key = config.get('MINIMAX_API_KEY')
+            base_url = config.get('MINIMAX_BASE_URL')
+            
+            if not api_key or not base_url:
+                logger.warning("MiniMax API未配置，使用模拟响应")
+                return self._generate_mock_response(prompt)
+            
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            data = {
+                'model': config.get('MINIMAX_MODEL', 'MiniMax-Text-01'),
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ],
+                'max_tokens': 1000,
+                'temperature': 0.7
+            }
+            
+            response = requests.post(
+                base_url,
+                headers=headers,
+                json=data,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+                logger.info("成功调用MiniMax API进行精神状态分析")
+                return content
+            else:
+                logger.error(f"MiniMax API请求失败: HTTP {response.status_code}")
+                return self._generate_mock_response(prompt)
+                
+        except requests.exceptions.Timeout:
+            logger.error("MiniMax API请求超时，使用模拟响应")
+            return self._generate_mock_response(prompt)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"MiniMax API请求异常: {e}，使用模拟响应")
+            return self._generate_mock_response(prompt)
+        except Exception as e:
+            logger.error(f"调用MiniMax API失败: {e}")
+            return self._generate_mock_response(prompt)
     
     def _call_openai_api(self, prompt: str) -> str:
         """调用OpenAI API"""
-        # 这里可以实现OpenAI API的具体调用逻辑  
-        logger.info("调用OpenAI API（当前为模拟模式）")
-        return self._generate_mock_response(prompt)
+        try:
+            # 导入配置系统
+            from ..utils.config import config
+            
+            api_key = config.get('OPENAI_API_KEY')
+            
+            if not api_key:
+                logger.warning("OpenAI API未配置，使用模拟响应")
+                return self._generate_mock_response(prompt)
+            
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            data = {
+                'model': config.get('OPENAI_MODEL', 'gpt-3.5-turbo'),
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ],
+                'max_tokens': 1000,
+                'temperature': 0.7
+            }
+            
+            response = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers=headers,
+                json=data,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+                logger.info("成功调用OpenAI API进行精神状态分析")
+                return content
+            else:
+                logger.error(f"OpenAI API请求失败: HTTP {response.status_code}")
+                return self._generate_mock_response(prompt)
+                
+        except requests.exceptions.Timeout:
+            logger.error("OpenAI API请求超时，使用模拟响应")
+            return self._generate_mock_response(prompt)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"OpenAI API请求异常: {e}，使用模拟响应")
+            return self._generate_mock_response(prompt)
+        except Exception as e:
+            logger.error(f"调用OpenAI API失败: {e}")
+            return self._generate_mock_response(prompt)
 
     def _generate_mock_response(self, prompt: str) -> str:
         """生成模拟的LLM响应（用于测试）"""
