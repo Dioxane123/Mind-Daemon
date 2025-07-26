@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.png" alt="项目Logo" width="200"/>
+</div>
+
 # Mind Daemon - BCI智能辅助系统
 
 🧠 **基于脑机接口(BCI)的专注力和生产力辅助系统，专为ADHD患者设计**
