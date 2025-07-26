@@ -77,6 +77,8 @@ class MindDaemonDashboard {
 
     updateBasicDataFromSocket(data) {
         // 从socket接收的数据更新基本数据和高级数据
+        console.log('收到WebSocket数据:', data);
+        
         if (data && data.basic) {
             // 更新基础数据
             if (data.basic.light && data.basic.music && data.basic.curtain && data.basic.Scores) {
@@ -89,6 +91,10 @@ class MindDaemonDashboard {
             if (data.basic.algorithm_analysis) {
                 this.updateAlgorithmAnalysis(data.basic.algorithm_analysis);
             }
+            
+            // 始终更新手势识别数据（即使为空，也要显示状态）
+            console.log('手势识别数据:', data.basic.gesture_recognition);
+            this.updateGestureRecognition(data.basic.gesture_recognition);
         }
         
         if (data && data.advanced) {
@@ -123,8 +129,8 @@ class MindDaemonDashboard {
     }
 
     loadSampleData() {
-        // Load basic data
-        this.updateBasicData({
+        // Load basic data with gesture recognition sample
+        const sampleBasicData = {
             "light": { 
                 "is_on": true, 
                 "color_hex": "#FF5733", 
@@ -144,7 +150,32 @@ class MindDaemonDashboard {
                 "Re": 72, 
                 "St": 35
             },
-        });
+            "gesture_recognition": {
+                "service_connected": false,
+                "service_running": false,
+                "connection_status": "演示模式 - 无实际硬件连接",
+                "error_message": null,
+                "last_gesture": {
+                    "name": "演示手势",
+                    "value": 0,
+                    "confidence": 0.0,
+                    "mode": "unknown_mode",
+                    "timestamp": new Date().toISOString()
+                },
+                "last_execution": {
+                    "result": {
+                        "success": false,
+                        "message": "演示模式，无实际执行"
+                    },
+                    "timestamp": new Date().toISOString()
+                }
+            }
+        };
+
+        this.updateBasicData(sampleBasicData);
+        
+        // 更新手势识别显示
+        this.updateGestureRecognition(sampleBasicData.gesture_recognition);
 
         // Load advanced data
         this.updateAdvancedData({
@@ -278,6 +309,160 @@ class MindDaemonDashboard {
         actionIcon.className = actionIconConfig.icon;
     }
 
+    updateGestureRecognition(gestureData) {
+        // 更新手势识别状态指示器
+        const gestureStatus = document.getElementById('gesture-status');
+        const serviceStatus = document.getElementById('gesture-service-status');
+        const connectionStatus = document.getElementById('gesture-connection-status');
+        const lastGestureName = document.getElementById('last-gesture-name');
+        const lastGestureMode = document.getElementById('last-gesture-mode');
+        const lastGestureConfidence = document.getElementById('last-gesture-confidence');
+
+        if (!gestureData) {
+            // 如果没有手势数据，显示未连接状态
+            if (gestureStatus) {
+                gestureStatus.className = 'status-indicator off';
+                gestureStatus.title = '手势识别服务未连接';
+            }
+            if (serviceStatus) {
+                serviceStatus.textContent = '未连接';
+                serviceStatus.className = 'value status-disconnected';
+            }
+            if (connectionStatus) {
+                connectionStatus.textContent = '未连接';
+            }
+            return;
+        }
+
+        console.log('更新手势识别数据:', gestureData);
+
+        // 更新服务状态指示器
+        if (gestureStatus) {
+            if (gestureData.service_running) {
+                gestureStatus.className = 'status-indicator active';
+                gestureStatus.title = '手势识别服务运行中';
+            } else if (gestureData.service_connected) {
+                gestureStatus.className = 'status-indicator warning';
+                gestureStatus.title = '已连接但服务未运行';
+            } else {
+                gestureStatus.className = 'status-indicator off';
+                gestureStatus.title = '服务未连接';
+            }
+        }
+
+        // 更新服务状态文本
+        if (serviceStatus) {
+            if (gestureData.service_running) {
+                serviceStatus.textContent = '运行中';
+                serviceStatus.className = 'value status-running';
+            } else if (gestureData.service_connected) {
+                serviceStatus.textContent = '已连接';
+                serviceStatus.className = 'value status-connected';
+            } else {
+                serviceStatus.textContent = '未连接';
+                serviceStatus.className = 'value status-disconnected';
+            }
+        }
+
+        // 更新连接状态
+        if (connectionStatus) {
+            connectionStatus.textContent = gestureData.connection_status || '未知';
+        }
+
+        // 更新最新手势信息
+        if (gestureData.last_gesture) {
+            const lastGesture = gestureData.last_gesture;
+            
+            if (lastGestureName) {
+                lastGestureName.textContent = lastGesture.name || '无';
+            }
+            
+            if (lastGestureMode) {
+                const modeText = this.formatGestureMode(lastGesture.mode);
+                lastGestureMode.textContent = modeText;
+                lastGestureMode.className = `value gesture-mode-${lastGesture.mode}`;
+            }
+            
+            if (lastGestureConfidence) {
+                const confidence = (lastGesture.confidence * 100).toFixed(1);
+                lastGestureConfidence.textContent = `${confidence}%`;
+            }
+        } else {
+            // 如果没有手势数据，显示默认值
+            if (lastGestureName) lastGestureName.textContent = '无';
+            if (lastGestureMode) lastGestureMode.textContent = '无';
+            if (lastGestureConfidence) lastGestureConfidence.textContent = '0%';
+        }
+
+        // 更新手势执行结果
+        this.updateGestureExecution(gestureData.last_execution);
+    }
+
+    formatGestureMode(mode) {
+        const modeMap = {
+            'work_mode': '工作模式',
+            'silent_mode': '静音模式',
+            'rest_mode': '休息模式',
+            'unknown_mode': '无模式切换'
+        };
+        return modeMap[mode] || mode || '无';
+    }
+
+    updateGestureExecution(executionData) {
+        // 更新手势执行结果显示
+        const executionStatus = document.getElementById('gesture-execution-status');
+        const executionActions = document.getElementById('gesture-execution-actions');
+        const executionTime = document.getElementById('gesture-execution-time');
+
+        if (!executionData || !executionData.result) {
+            // 没有执行结果时显示默认状态
+            if (executionStatus) {
+                executionStatus.textContent = '暂无执行';
+                executionStatus.className = 'value execution-none';
+            }
+            if (executionActions) executionActions.textContent = '无';
+            if (executionTime) executionTime.textContent = '无';
+            return;
+        }
+
+        const result = executionData.result;
+        const timestamp = executionData.timestamp;
+
+        // 更新执行状态
+        if (executionStatus) {
+            if (result.success) {
+                executionStatus.textContent = '执行成功';
+                executionStatus.className = 'value execution-success';
+            } else {
+                executionStatus.textContent = '执行失败';
+                executionStatus.className = 'value execution-failed';
+            }
+        }
+
+        // 更新执行操作
+        if (executionActions) {
+            const actions = result.actions_performed || [];
+            if (actions.length > 0) {
+                executionActions.textContent = actions.join(', ');
+                executionActions.title = actions.join('\n'); // 鼠标悬停显示完整列表
+            } else {
+                executionActions.textContent = '无操作';
+            }
+        }
+
+        // 更新执行时间
+        if (executionTime && timestamp) {
+            const executeTime = new Date(timestamp);
+            const timeStr = executeTime.toLocaleTimeString('zh-CN', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            executionTime.textContent = timeStr;
+        }
+    }
+
     updateRandomData() {
         // Generate random data for demonstration
         const randomScores = {
@@ -293,8 +478,8 @@ class MindDaemonDashboard {
         const randomState = states[Math.floor(Math.random() * states.length)];
         const randomAction = actions[Math.floor(Math.random() * actions.length)];
 
-        // Update basic data with random values
-        this.updateBasicData({
+        // Update basic data with random values including gesture recognition
+        const randomBasicData = {
             "light": { 
                 "is_on": Math.random() > 0.2, 
                 "color_hex": this.getRandomColor(), 
@@ -308,8 +493,31 @@ class MindDaemonDashboard {
             "curtain": { 
                 "state": Math.random() > 0.5 ? 0 : 1 
             },
-            "Scores": randomScores
-        });
+            "Scores": randomScores,
+            "gesture_recognition": {
+                "service_connected": false,
+                "service_running": false,
+                "connection_status": "随机数据模式 - 模拟运行",
+                "error_message": null,
+                "last_gesture": {
+                    "name": "模拟手势",
+                    "value": Math.floor(Math.random() * 8),
+                    "confidence": Math.random(),
+                    "mode": "unknown_mode",
+                    "timestamp": new Date().toISOString()
+                },
+                "last_execution": {
+                    "result": {
+                        "success": Math.random() > 0.5,
+                        "message": "模拟执行结果"
+                    },
+                    "timestamp": new Date().toISOString()
+                }
+            }
+        };
+
+        this.updateBasicData(randomBasicData);
+        this.updateGestureRecognition(randomBasicData.gesture_recognition);
 
         // Update advanced data
         this.updateAdvancedData({

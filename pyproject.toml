@@ -24,6 +24,9 @@ dependencies = [
     "websockets>=12.0",
     "requests>=2.31.0",
     "psutil>=5.9.0",
+    "config>=0.5.1",
+    "paramiko>=3.5.1",
+    "loguru>=0.7.3",
 ]
 
 [project.scripts]

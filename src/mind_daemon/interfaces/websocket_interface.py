@@ -29,7 +29,10 @@ load_dotenv()
 from ..analyzers.state_analyzer import StateAnalyzer, MentalState, StateAnalysisResult
 from ..analyzers.llm_analyzer import LLMAnalyzer, LLMAnalysisResult
 from ..agent.environment_agent import EnvironmentAgent
+from ..agent.gesture_environment_coordinator import GestureEnvironmentCoordinator
 from ..bci.data_stream_service import get_data_stream_service
+from ..detect import GestureDetector, SocketClient
+from ..detect.config import remote_config
 # from ..utils.config import config  # 已替换为直接使用环境变量
 
 # 配置日志
@@ -42,8 +45,11 @@ class BasicParams:
     light: Dict[str, Any]
     music: Dict[str, Any] 
     curtain: Dict[str, Any]
+    halo: Dict[str, Any]  # 光晕状态
     Scores: Dict[str, int]  # 注意大写S
     algorithm_analysis: Dict[str, Any]  # 算法分析结果
+    gesture_recognition: Dict[str, Any]  # 手势识别状态
+    environment_control: Dict[str, Any]  # 环境控制状态（包含冷却信息）
     timestamp: str
 
 @dataclass 
@@ -75,8 +81,47 @@ class WebSocketInterface:
         # 核心分析组件
         self.state_analyzer = StateAnalyzer()
         self.llm_analyzer = LLMAnalyzer()
-        self.environment_agent = EnvironmentAgent()
+        
+        # 使用手势环境协调器（集成了环境控制智能体和手势检测）
+        gesture_config = {
+            'gesture_host': os.getenv('GESTURE_HOST', '172.20.10.2'),
+            'gesture_port': int(os.getenv('GESTURE_PORT', '8888')),
+            'MUSIC_DIR': os.getenv('MUSIC_DIR', 'music'),
+            'WINDOW_PY_PATH': os.getenv('WINDOW_PY_PATH', 'src/mind_daemon/peripheral/window.py')
+        }
+        self.gesture_environment_coordinator = GestureEnvironmentCoordinator(gesture_config)
+        self.environment_agent = self.gesture_environment_coordinator.environment_agent  # 兼容现有代码
+        
         self.data_stream_service = get_data_stream_service()
+        
+        # 手势识别状态（由协调器管理）
+        self.gesture_status = {
+            "service_connected": False,
+            "service_running": False,
+            "connection_status": "协调器管理",
+            "error_message": None,
+            "last_gesture": {
+                "name": None,
+                "value": None,
+                "confidence": 0.0,
+                "mode": None,
+                "timestamp": None
+            },
+            "last_execution": {
+                "result": None,
+                "timestamp": None
+            },
+            "supported_gestures": {
+                "ThumbUp": "work_mode",
+                "Victory": "unknown_mode", 
+                "Mute": "silent_mode",
+                "Palm": "rest_mode",
+                "Okay": "unknown_mode",
+                "ThumbLeft": "unknown_mode",
+                "ThumbRight": "unknown_mode",
+                "Awesome": "unknown_mode"
+            }
+        }
         
         # 状态变量
         self.last_basic_params: Optional[BasicParams] = None
@@ -94,7 +139,140 @@ class WebSocketInterface:
         # 注册BCI数据流回调
         self.data_stream_service.add_data_callback(self._on_bci_data_update)
         
-        logger.info(f"WebSocket接口初始化完成 - {host}:{port}")
+        # 设置环境变化回调（用于更新手势状态）
+        self.gesture_environment_coordinator.set_environment_change_callback(self._on_environment_change)
+        
+        # 初始化手势协调器
+        self._initialize_gesture_coordinator()
+        
+        logger.info(f"WebSocket接口初始化完成 - {self.host}:{self.port}")
+
+    def _initialize_gesture_coordinator(self):
+        """初始化手势环境协调器"""
+        try:
+            logger.info("初始化手势环境协调器...")
+            
+            # 尝试启动协调器，但即使失败也允许继续运行
+            if self.gesture_environment_coordinator.start_monitoring():
+                self.gesture_status["service_connected"] = True
+                self.gesture_status["service_running"] = True
+                self.gesture_status["connection_status"] = "协调器运行中"
+                logger.info("手势环境协调器启动成功")
+            else:
+                self.gesture_status["service_connected"] = False
+                self.gesture_status["service_running"] = False
+                self.gesture_status["connection_status"] = "硬件连接失败，使用模拟模式"
+                logger.warning("手势硬件连接失败，协调器将以模拟模式运行")
+                
+                # 在模拟模式下，仍可以手动触发环境切换来测试冷却系统
+                self._start_demo_mode()
+            
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"手势环境协调器初始化失败: {e}")
+            self.gesture_status["error_message"] = error_msg
+            
+            # 根据错误类型给出不同的状态提示
+            if "'_monitoring_loop'" in error_msg or "AttributeError" in error_msg:
+                self.gesture_status["connection_status"] = "代码缺陷已修复，重新启动"
+                logger.info("检测到代码结构问题，现已修复，建议重新启动服务")
+            elif "SSH" in error_msg or "Authentication" in error_msg or "Connection" in error_msg:
+                self.gesture_status["connection_status"] = "SSH连接失败，检查网络和凭据"
+                logger.error("SSH连接问题，请检查网络连接和认证信息")
+            elif "Socket" in error_msg or "ConnectionRefused" in error_msg:
+                self.gesture_status["connection_status"] = "Socket服务连接失败，检查远程服务"
+                logger.error("Socket连接问题，请检查远程手势检测服务状态")
+            else:
+                self.gesture_status["connection_status"] = "未知错误，使用模拟模式"
+                logger.error(f"未知错误类型: {error_msg}")
+            
+            # 启动模拟模式作为后备
+            self._start_demo_mode()
+
+    def _start_demo_mode(self):
+        """启动演示模式，定期触发环境切换以测试冷却系统"""
+        try:
+            logger.info("启动环境切换演示模式...")
+            
+            def demo_loop():
+                """演示循环，每60秒尝试一次环境切换"""
+                import time
+                modes = ['work_mode', 'rest_mode', 'silent_mode']
+                mode_index = 0
+                
+                while self.running:
+                    try:
+                        time.sleep(60)  # 每60秒触发一次
+                        if not self.running:
+                            break
+                            
+                        current_mode = modes[mode_index % len(modes)]
+                        logger.info(f"演示模式：尝试切换到 {current_mode}")
+                        
+                        # 手动触发环境切换
+                        result = self.gesture_environment_coordinator.manual_environment_switch(
+                            current_mode, 
+                            f"demo_mode_{mode_index}"
+                        )
+                        
+                        # 更新手势状态，模拟检测到的手势
+                        self.gesture_status["last_gesture"] = {
+                            "name": f"Demo_{current_mode}",
+                            "value": mode_index,
+                            "confidence": 1.0,
+                            "mode": current_mode,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        
+                        mode_index += 1
+                        logger.info(f"演示模式环境切换结果: {result.get('message', 'unknown')}")
+                        
+                    except Exception as e:
+                        logger.error(f"演示模式循环错误: {e}")
+                        time.sleep(5)  # 错误后等待5秒再继续
+            
+            # 在单独的线程中运行演示循环
+            demo_thread = threading.Thread(target=demo_loop, daemon=True)
+            demo_thread.start()
+            
+            logger.info("环境切换演示模式已启动")
+            
+        except Exception as e:
+            logger.error(f"启动演示模式失败: {e}")
+
+    def _on_environment_change(self, result: Dict[str, Any]):
+        """环境变化回调函数"""
+        try:
+            # 更新手势执行状态
+            self.gesture_status["last_execution"] = {
+                "result": result,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # 记录日志
+            if result.get('success'):
+                actions = result.get('actions_performed', [])
+                logger.info(f"环境变化成功: {result.get('message')} - 执行了{len(actions)}个操作")
+                
+                # 输出到终端显示
+                gesture_name = result.get('gesture_name', 'Unknown')
+                gesture_mode = result.get('gesture_mode', 'unknown')
+                
+                print(f"\n🌍 [{datetime.now().strftime('%H:%M:%S')}] 环境控制变化:")
+                print(f"  触发: {gesture_name} → 模式: {gesture_mode}")
+                print(f"  执行操作: {', '.join(actions) if actions else '无操作'}")
+                print(f"  结果: {result.get('message', 'unknown')}")
+                
+                # 如果有冷却信息，也显示
+                if 'cooldown_remaining' in result:
+                    print(f"  冷却剩余: {result['cooldown_remaining']:.1f}秒")
+            else:
+                error_msg = result.get('error', result.get('message', '未知错误'))
+                logger.warning(f"环境变化失败: {error_msg}")
+                
+        except Exception as e:
+            logger.error(f"环境变化回调处理失败: {e}")
+
 
     async def register_client(self, websocket):
         """注册新的WebSocket客户端"""
@@ -184,6 +362,15 @@ class WebSocketInterface:
             # 获取当前环境状态
             env_state = self.environment_agent.get_current_environment_state()
             
+            # 获取环境控制状态（包含冷却信息）
+            coordinator_status = self.gesture_environment_coordinator.get_status()
+            environment_control_status = {
+                "cooldown_status": self.gesture_environment_coordinator.get_cooldown_status(),
+                "recent_gestures": coordinator_status.get('recent_gestures', []),
+                "environment_switch_status": coordinator_status.get('environment_switch_status', {}),
+                "is_coordinator_running": coordinator_status.get('is_running', False)
+            }
+            
             # 使用实时BCI数据
             scores = self.latest_bci_scores.copy()
             
@@ -191,8 +378,11 @@ class WebSocketInterface:
                 light=env_state["light"],
                 music=env_state["music"],
                 curtain=env_state["curtain"],
+                halo=env_state["halo"],  # 添加光晕状态
                 Scores=scores,
                 algorithm_analysis=self.latest_algorithm_analysis.copy(),
+                gesture_recognition=self.gesture_status.copy(),
+                environment_control=environment_control_status,  # 添加环境控制状态
                 timestamp=datetime.now().isoformat()
             )
             
@@ -203,8 +393,16 @@ class WebSocketInterface:
                 light={"is_on": True, "color_hex": "#FFFFFF", "lightness": 50},
                 music={"is_playing": True, "name": "Default", "type": "Relaxing"},
                 curtain={"state": 0},
+                halo={"is_active": False, "color_rgb": (255, 255, 255)},  # 默认光晕状态
                 Scores={"At": 50, "Ex": 50, "Re": 50, "St": 50},
                 algorithm_analysis={},  # 默认空的算法分析
+                gesture_recognition=self.gesture_status.copy(),  # 手势识别状态
+                environment_control={  # 默认环境控制状态
+                    "cooldown_status": {"is_switch_allowed": True, "remaining_seconds": 0},
+                    "recent_gestures": [],
+                    "environment_switch_status": {},
+                    "is_coordinator_running": False
+                },
                 timestamp=datetime.now().isoformat()
             )
 
@@ -396,11 +594,13 @@ class WebSocketInterface:
         except Exception as e:
             logger.error(f"BCI数据流服务停止失败: {e}")
         
-        # 清理环境智能体
+        # 停止手势环境协调器
         try:
-            self.environment_agent.cleanup()
+            self.gesture_environment_coordinator.stop_monitoring()
+            self.gesture_environment_coordinator.cleanup()
+            logger.info("手势环境协调器已停止")
         except Exception as e:
-            logger.error(f"环境智能体清理失败: {e}")
+            logger.error(f"手势环境协调器停止失败: {e}")
 
 async def main():
     """主函数"""

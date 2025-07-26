@@ -56,6 +56,11 @@ class WebSocketMonitor:
             'basic_data_count': 0,
             'advanced_data_count': 0,
             'algorithm_data_count': 0,
+            'gesture_data_count': 0,
+            'valid_gesture_count': 0,
+            'environment_control_count': 0,
+            'halo_data_count': 0,
+            'cooldown_active_count': 0,
             'last_message_time': None,
             'connection_lost_count': 0
         }
@@ -78,7 +83,12 @@ class WebSocketMonitor:
             'basic_complete': False,
             'advanced_complete': False,
             'has_algorithm_analysis': False,
-            'scores_valid': False
+            'has_gesture_recognition': False,
+            'has_environment_control': False,
+            'has_halo': False,
+            'gesture_service_running': False,
+            'scores_valid': False,
+            'environment_cooldown_active': False
         }
         
         # 检查基础结构
@@ -86,8 +96,8 @@ class WebSocketMonitor:
             validation_results['has_basic'] = True
             basic = data['basic']
             
-            # 检查基础字段完整性
-            required_basic = ['light', 'music', 'curtain', 'Scores']
+            # 检查基础字段完整性（添加新字段）
+            required_basic = ['light', 'music', 'curtain', 'halo', 'Scores', 'environment_control']
             if all(field in basic for field in required_basic):
                 validation_results['basic_complete'] = True
                 self.stats['basic_data_count'] += 1
@@ -103,6 +113,36 @@ class WebSocketMonitor:
             if 'algorithm_analysis' in basic:
                 validation_results['has_algorithm_analysis'] = True
                 self.stats['algorithm_data_count'] += 1
+            
+            # 检查光晕状态
+            if 'halo' in basic:
+                validation_results['has_halo'] = True
+                self.stats['halo_data_count'] += 1
+            
+            # 检查环境控制
+            if 'environment_control' in basic:
+                validation_results['has_environment_control'] = True
+                self.stats['environment_control_count'] += 1
+                env_control = basic['environment_control']
+                
+                # 检查冷却状态
+                cooldown_status = env_control.get('cooldown_status', {})
+                if not cooldown_status.get('is_switch_allowed', True):
+                    validation_results['environment_cooldown_active'] = True
+                    self.stats['cooldown_active_count'] += 1
+            
+            # 检查手势识别
+            if 'gesture_recognition' in basic:
+                validation_results['has_gesture_recognition'] = True
+                self.stats['gesture_data_count'] += 1
+                
+                gesture_data = basic['gesture_recognition']
+                if gesture_data.get('service_running'):
+                    validation_results['gesture_service_running'] = True
+                
+                # 检查是否有有效的手势数据
+                if gesture_data.get('last_gesture', {}).get('name'):
+                    self.stats['valid_gesture_count'] += 1
         
         # 检查高级结构
         if 'advanced' in data:
@@ -157,6 +197,13 @@ class WebSocketMonitor:
                 curtain_status = "🪟 Open" if curtain.get('state') == 0 else "🚪 Closed"
                 output.append(f"  🏠 Curtain: {curtain_status}")
             
+            # 光晕状态
+            if validation['has_halo']:
+                halo = basic['halo']
+                halo_status = "✨ Active" if halo.get('is_active') else "⭕ Inactive"
+                halo_color = halo.get('color_rgb', (255, 255, 255))
+                output.append(f"  ✨ Halo: {halo_status} RGB{halo_color}")
+            
             # 认知分数
             if validation['scores_valid']:
                 scores = basic['Scores']
@@ -179,6 +226,87 @@ class WebSocketMonitor:
                     cognitive_state = cognitive.get('state', 'Unknown')
                     engagement = cognitive.get('engagement_index', 0)
                     output.append(f"    🧮 Cognitive: {cognitive_state} (Engagement: {engagement:.2f})")
+            
+            # 手势识别数据
+            if validation['has_gesture_recognition']:
+                gesture = basic['gesture_recognition']
+                output.append(f"  🤚 Gesture Recognition: {Colors.OKCYAN}Available{Colors.ENDC}")
+                
+                # 服务状态
+                service_status = "🟢 Running" if gesture.get('service_running') else "🔴 Stopped"
+                connection_status = gesture.get('connection_status', 'Unknown')
+                output.append(f"    📡 Service: {service_status} ({connection_status})")
+                
+                # 最新手势
+                if gesture.get('last_gesture', {}).get('name'):
+                    last_gesture = gesture['last_gesture']
+                    gesture_name = last_gesture.get('name', 'Unknown')
+                    gesture_mode = last_gesture.get('mode', 'unknown_mode')
+                    confidence = last_gesture.get('confidence', 0)
+                    
+                    # 模式映射
+                    mode_map = {
+                        'work_mode': '工作模式',
+                        'silent_mode': '静音模式',
+                        'rest_mode': '休息模式',
+                        'unknown_mode': '无模式切换'
+                    }
+                    mode_text = mode_map.get(gesture_mode, gesture_mode)
+                    
+                    # 手势图标映射
+                    gesture_icons = {
+                        'ThumbUp': '👍',
+                        'Victory': '✌️',
+                        'Mute': '🤫',
+                        'Palm': '✋',
+                        'Okay': '👌',
+                        'ThumbLeft': '👈',
+                        'ThumbRight': '👉',
+                        'Awesome': '🤟'
+                    }
+                    gesture_icon = gesture_icons.get(gesture_name, '🤚')
+                    
+                    confidence_color = Colors.OKGREEN if confidence > 0.7 else Colors.WARNING if confidence > 0.4 else Colors.FAIL
+                    
+                    output.append(f"    {gesture_icon} Latest: {gesture_name} → {mode_text} ({confidence_color}{confidence:.2f}{Colors.ENDC})")
+                else:
+                    output.append(f"    ❌ No gesture detected")
+            
+            # 环境控制状态
+            if validation['has_environment_control']:
+                env_control = basic['environment_control']
+                output.append(f"  🌍 Environment Control: {Colors.OKCYAN}Available{Colors.ENDC}")
+                
+                # 冷却状态
+                cooldown_status = env_control.get('cooldown_status', {})
+                is_allowed = cooldown_status.get('is_switch_allowed', True)
+                if is_allowed:
+                    output.append(f"    ✅ Cooldown: {Colors.OKGREEN}Ready{Colors.ENDC}")
+                else:
+                    remaining = cooldown_status.get('remaining_seconds', 0)
+                    output.append(f"    ⏳ Cooldown: {Colors.WARNING}{remaining:.1f}s remaining{Colors.ENDC}")
+                
+                # 协调器状态
+                is_coordinator_running = env_control.get('is_coordinator_running', False)
+                coordinator_status = "🟢 Running" if is_coordinator_running else "🔴 Stopped"
+                output.append(f"    🤝 Coordinator: {coordinator_status}")
+                
+                # 最近的手势
+                recent_gestures = env_control.get('recent_gestures', [])
+                if recent_gestures:
+                    latest = recent_gestures[-1]
+                    gesture_name = latest.get('gesture', 'Unknown')
+                    gesture_mode = latest.get('mode', 'unknown')
+                    gesture_time = latest.get('timestamp', 'N/A')
+                    output.append(f"    🎯 Recent: {gesture_name} → {gesture_mode}")
+                
+                # 环境切换历史统计
+                switch_status = env_control.get('environment_switch_status', {})
+                total_switches = switch_status.get('total_switches', 0)
+                if total_switches > 0:
+                    output.append(f"    📊 Total switches: {total_switches}")
+                else:
+                    output.append(f"    📊 No environment switches yet")
         
         # Advanced数据
         if validation['has_advanced']:
@@ -223,6 +351,11 @@ class WebSocketMonitor:
         print(f"Basic数据: {Colors.OKBLUE}{self.stats['basic_data_count']}{Colors.ENDC}")
         print(f"Advanced数据: {Colors.OKGREEN}{self.stats['advanced_data_count']}{Colors.ENDC}")
         print(f"算法分析: {Colors.OKCYAN}{self.stats['algorithm_data_count']}{Colors.ENDC}")
+        print(f"手势识别: {Colors.OKCYAN}{self.stats['gesture_data_count']}{Colors.ENDC}")
+        print(f"有效手势: {Colors.OKGREEN}{self.stats['valid_gesture_count']}{Colors.ENDC}")
+        print(f"光晕数据: {Colors.OKCYAN}{self.stats['halo_data_count']}{Colors.ENDC}")
+        print(f"环境控制: {Colors.OKCYAN}{self.stats['environment_control_count']}{Colors.ENDC}")
+        print(f"冷却检测: {Colors.WARNING}{self.stats['cooldown_active_count']}{Colors.ENDC}")
         
         # 连接质量
         if self.stats['connection_lost_count'] > 0:
@@ -293,13 +426,34 @@ class WebSocketMonitor:
                                     basic_status = "✅" if validation['basic_complete'] else "❌"
                                     advanced_status = "✅" if validation['advanced_complete'] else "❌"
                                     algo_status = "🧠" if validation['has_algorithm_analysis'] else "⭕"
+                                    halo_status = "✨" if validation['has_halo'] and data['basic']['halo'].get('is_active') else "⭕"
+                                    gesture_status = "🤚" if validation['has_gesture_recognition'] else "⭕"
+                                    gesture_service = "🟢" if validation['gesture_service_running'] else "🔴"
+                                    env_control_status = "🌍" if validation['has_environment_control'] else "⭕"
+                                    
+                                    # 冷却状态指示
+                                    cooldown_indicator = ""
+                                    if validation['has_environment_control'] and validation['environment_cooldown_active']:
+                                        env_control = data['basic']['environment_control']
+                                        cooldown_status = env_control.get('cooldown_status', {})
+                                        remaining = cooldown_status.get('remaining_seconds', 0)
+                                        cooldown_indicator = f"⏳{remaining:.0f}s"
+                                    elif validation['has_environment_control']:
+                                        cooldown_indicator = "✅"
                                     
                                     scores_info = ""
                                     if validation['scores_valid']:
                                         scores = data['basic']['Scores']
                                         scores_info = f"At:{scores['At']} Ex:{scores['Ex']} Re:{scores['Re']} St:{scores['St']}"
                                     
-                                    print(f"[{timestamp}] Basic:{basic_status} Advanced:{advanced_status} Algo:{algo_status} | {scores_info}")
+                                    gesture_info = ""
+                                    if validation['has_gesture_recognition'] and data['basic']['gesture_recognition'].get('last_gesture', {}).get('name'):
+                                        last_gesture = data['basic']['gesture_recognition']['last_gesture']
+                                        gesture_name = last_gesture.get('name', 'N/A')
+                                        confidence = last_gesture.get('confidence', 0)
+                                        gesture_info = f"Gesture:{gesture_name}({confidence:.2f})"
+                                    
+                                    print(f"[{timestamp}] Basic:{basic_status} Advanced:{advanced_status} Algo:{algo_status} Halo:{halo_status} Gesture:{gesture_status}{gesture_service} Env:{env_control_status}{cooldown_indicator} | {scores_info} {gesture_info}")
                             else:
                                 self.stats['invalid_messages'] += 1
                                 print(f"{Colors.WARNING}⚠️  收到无效数据包{Colors.ENDC}")
@@ -377,8 +531,9 @@ def main():
   python websocket_monitor.py -v -d 60 --host localhost # 组合参数
 
 输出说明:
-  ✅ - 数据完整    ❌ - 数据缺失    🧠 - 包含算法分析
-  ⭕ - 无算法分析  ⚠️ - 警告       🔄 - 重新连接
+  ✅ - 数据完整    ❌ - 数据缺失    🧠 - 包含算法分析    🤚 - 手势识别可用    ✨ - 光晕激活
+  ⭕ - 无数据      🟢 - 服务运行    🔴 - 服务停止      🌍 - 环境控制      ⏳ - 冷却剩余时间
+  ⚠️ - 警告       🔄 - 重新连接    🎯 - 手势触发      🤝 - 协调器运行
         """
     )
     

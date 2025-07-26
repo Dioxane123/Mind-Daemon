@@ -634,6 +634,12 @@ class EnvironmentAgent:
         self.curtain_state = CurtainState()
         self.halo_state = HaloState()
         
+        # 全局环境切换冷却系统
+        self.last_environment_switch_time = 0
+        self.environment_switch_cooldown = 30  # 30秒全局环境切换冷却时间
+        self.environment_switch_history = []  # 环境切换历史记录
+        self.max_history_records = 10
+        
         # 使用环境变量配置（替换config系统）
         # from ..utils.config import config as global_config
         # self.global_config = global_config
@@ -659,6 +665,65 @@ class EnvironmentAgent:
         self.max_history = 5
         
         logger.info("环境控制智能体初始化完成")
+
+    def is_environment_switch_allowed(self) -> Tuple[bool, float]:
+        """
+        检查是否允许进行环境切换
+        
+        Returns:
+            Tuple[bool, float]: (是否允许切换, 剩余冷却时间)
+        """
+        current_time = time.time()
+        time_since_last_switch = current_time - self.last_environment_switch_time
+        
+        if time_since_last_switch >= self.environment_switch_cooldown:
+            return True, 0.0
+        else:
+            remaining_cooldown = self.environment_switch_cooldown - time_since_last_switch
+            return False, remaining_cooldown
+    
+    def record_environment_switch(self, switch_type: str, details: str = ""):
+        """
+        记录环境切换事件
+        
+        Args:
+            switch_type: 切换类型（如 'gesture_mode', 'state_analysis'）
+            details: 切换详情
+        """
+        current_time = time.time()
+        self.last_environment_switch_time = current_time
+        
+        # 记录到历史
+        record = {
+            'timestamp': datetime.now().isoformat(),
+            'switch_type': switch_type,
+            'details': details,
+            'unix_time': current_time
+        }
+        
+        self.environment_switch_history.append(record)
+        if len(self.environment_switch_history) > self.max_history_records:
+            self.environment_switch_history.pop(0)
+        
+        logger.info(f"环境切换已记录: {switch_type} - {details}")
+    
+    def get_environment_switch_status(self) -> Dict[str, Any]:
+        """
+        获取环境切换状态信息
+        
+        Returns:
+            Dict[str, Any]: 包含冷却状态和历史记录的信息
+        """
+        is_allowed, remaining_time = self.is_environment_switch_allowed()
+        
+        return {
+            'is_switch_allowed': is_allowed,
+            'remaining_cooldown_seconds': remaining_time,
+            'cooldown_duration': self.environment_switch_cooldown,
+            'last_switch_time': datetime.fromtimestamp(self.last_environment_switch_time).isoformat() if self.last_environment_switch_time else None,
+            'switch_history': self.environment_switch_history[-5:],  # 返回最近5条记录
+            'total_switches': len(self.environment_switch_history)
+        }
 
     def call_minimax_api(self, prompt: str) -> str:
         """调用MiniMax API进行决策"""
@@ -793,7 +858,7 @@ class EnvironmentAgent:
         })
 
     def analyze_and_control(self, current_state: str, confidence: float, 
-                          metrics: Dict[str, float]) -> Dict[str, Any]:
+                          metrics: Dict[str, float], force_execute: bool = False) -> Dict[str, Any]:
         """
         分析当前状态并执行环境控制
         
@@ -801,6 +866,7 @@ class EnvironmentAgent:
             current_state: 当前精神状态
             confidence: 置信度
             metrics: 相关指标
+            force_execute: 是否强制执行（忽略冷却时间）
             
         Returns:
             执行的控制动作
@@ -811,6 +877,20 @@ class EnvironmentAgent:
             if len(self.state_history) > self.max_history:
                 self.state_history.pop(0)
             
+            # 检查全局环境切换冷却时间（除非强制执行）
+            if not force_execute:
+                is_allowed, remaining_cooldown = self.is_environment_switch_allowed()
+                if not is_allowed:
+                    logger.info(f"基于状态的环境控制被跳过：冷却中，剩余 {remaining_cooldown:.1f} 秒")
+                    return {
+                        'state': current_state,
+                        'confidence': confidence,
+                        'skipped': True,
+                        'reason': 'cooldown_active',
+                        'cooldown_remaining': remaining_cooldown,
+                        'timestamp': datetime.now().isoformat()
+                    }
+            
             # 构建决策prompt
             prompt = self._build_decision_prompt(current_state, confidence, metrics)
             
@@ -820,6 +900,10 @@ class EnvironmentAgent:
             
             # 执行控制动作
             actions_performed = self._execute_decisions(decision)
+            
+            # 如果有实际的环境控制动作执行，记录环境切换
+            if actions_performed:
+                self.record_environment_switch('state_analysis', f'{current_state} (confidence: {confidence:.2f})')
             
             logger.info(f"环境控制决策完成，状态: {current_state}")
             
@@ -1103,6 +1187,275 @@ class EnvironmentAgent:
                 'is_active': self.halo_state.is_active,
                 'color_rgb': self.halo_state.color_rgb
             }
+        }
+
+    def handle_gesture_mode(self, gesture_mode: str, gesture_name: str = None, confidence: float = 1.0) -> Dict[str, Any]:
+        """
+        处理手势模式切换，执行相应的环境控制操作
+        
+        Args:
+            gesture_mode: 手势模式 (work_mode, rest_mode, silent_mode, unknown_mode)
+            gesture_name: 手势名称 (可选，用于日志记录)
+            confidence: 手势识别置信度 (默认1.0)
+        
+        Returns:
+            Dict[str, Any]: 执行结果和详细信息
+        """
+        try:
+            logger.info(f"处理手势模式切换: {gesture_mode} (手势: {gesture_name}, 置信度: {confidence:.2f})")
+            
+            # 记录手势触发的环境控制
+            result = {
+                'gesture_mode': gesture_mode,
+                'gesture_name': gesture_name,
+                'confidence': confidence,
+                'timestamp': datetime.now().isoformat(),
+                'actions_performed': [],
+                'success': False,
+                'message': ''
+            }
+            
+            # 检查全局环境切换冷却时间
+            is_allowed, remaining_cooldown = self.is_environment_switch_allowed()
+            if not is_allowed:
+                result['message'] = f'环境切换冷却中，剩余 {remaining_cooldown:.1f} 秒'
+                result['success'] = False
+                result['cooldown_remaining'] = remaining_cooldown
+                logger.info(f"环境切换被阻止：冷却中，剩余 {remaining_cooldown:.1f} 秒")
+                return result
+            
+            # 根据手势模式执行相应的环境控制
+            if gesture_mode == 'work_mode':
+                self.record_environment_switch('gesture_mode', f'{gesture_name} -> work_mode')
+                return self._execute_work_mode(result)
+            elif gesture_mode == 'rest_mode':
+                self.record_environment_switch('gesture_mode', f'{gesture_name} -> rest_mode')
+                return self._execute_rest_mode(result)
+            elif gesture_mode == 'silent_mode':
+                self.record_environment_switch('gesture_mode', f'{gesture_name} -> silent_mode')
+                return self._execute_silent_mode(result)
+            elif gesture_mode == 'unknown_mode':
+                result['message'] = '无需执行特定操作的手势'
+                result['success'] = True
+                return result
+            else:
+                result['message'] = f'未知的手势模式: {gesture_mode}'
+                logger.warning(result['message'])
+                return result
+                
+        except Exception as e:
+            logger.error(f"手势模式处理失败: {e}")
+            return {
+                'gesture_mode': gesture_mode,
+                'gesture_name': gesture_name,
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+
+    def _execute_work_mode(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行工作模式环境控制
+        
+        工作模式策略:
+        - 明亮的白色灯光，提高注意力
+        - 切换到专注音乐
+        - 打开窗帘，增加自然光
+        - 停用光晕，减少干扰
+        """
+        try:
+            actions = []
+            
+            # 1. 调整灯光 - 明亮白色
+            logger.info("工作模式: 调整灯光为明亮白色")
+            self.light_state.is_on = True
+            self.light_state.color_hex = "#FFFFFF"  # 纯白色
+            self.light_state.lightness = 80  # 较高亮度
+            actions.append("灯光调整为明亮白色 (80%亮度)")
+            
+            # 2. 切换专注音乐
+            if self.music_player.switch_music_type("focus"):
+                logger.info("工作模式: 切换到专注音乐")
+                self.music_state.music_type = "focus"
+                self.music_state.is_playing = True
+                actions.append("切换到专注音乐")
+            else:
+                logger.warning("工作模式: 音乐切换失败 (可能在冷却期)")
+                actions.append("音乐切换跳过 (冷却期)")
+            
+            # 3. 打开窗帘
+            logger.info("工作模式: 打开窗帘")
+            self.curtain_state.state = 0  # 0 = 打开
+            actions.append("打开窗帘")
+            
+            # 4. 停用光晕
+            if self.halo_controller.deactivate():
+                logger.info("工作模式: 停用光晕")
+                self.halo_state.is_active = False
+                actions.append("停用屏幕光晕")
+            
+            result['actions_performed'] = actions
+            result['success'] = True
+            result['message'] = f"工作模式环境控制完成 ({len(actions)}个操作)"
+            logger.info(f"工作模式执行完成: {actions}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"工作模式执行失败: {e}")
+            result['success'] = False
+            result['error'] = str(e)
+            return result
+
+    def _execute_rest_mode(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行休息模式环境控制
+        
+        休息模式策略:
+        - 柔和的暖色灯光，营造放松氛围
+        - 切换到放松音乐
+        - 关闭窗帘，创造私密空间
+        - 激活温暖色光晕
+        """
+        try:
+            actions = []
+            
+            # 1. 调整灯光 - 柔和暖色
+            logger.info("休息模式: 调整灯光为柔和暖色")
+            self.light_state.is_on = True
+            self.light_state.color_hex = "#FFB366"  # 温暖的橙色
+            self.light_state.lightness = 40  # 较低亮度
+            actions.append("灯光调整为柔和暖色 (40%亮度)")
+            
+            # 2. 切换放松音乐
+            if self.music_player.switch_music_type("relax"):
+                logger.info("休息模式: 切换到放松音乐")
+                self.music_state.music_type = "relax"
+                self.music_state.is_playing = True
+                actions.append("切换到放松音乐")
+            else:
+                logger.warning("休息模式: 音乐切换失败 (可能在冷却期)")
+                actions.append("音乐切换跳过 (冷却期)")
+            
+            # 3. 关闭窗帘
+            logger.info("休息模式: 关闭窗帘")
+            self.curtain_state.state = 1  # 1 = 关闭
+            actions.append("关闭窗帘")
+            
+            # 4. 激活温暖色光晕
+            warm_color = (255, 179, 102)  # 温暖的橙色RGB
+            if self.halo_controller.activate(warm_color):
+                logger.info("休息模式: 激活温暖色光晕")
+                self.halo_state.is_active = True
+                self.halo_state.color_rgb = warm_color
+                actions.append("激活温暖色屏幕光晕")
+            else:
+                logger.warning("休息模式: 光晕激活失败 (可能在冷却期)")
+                actions.append("光晕激活跳过 (冷却期)")
+            
+            result['actions_performed'] = actions
+            result['success'] = True
+            result['message'] = f"休息模式环境控制完成 ({len(actions)}个操作)"
+            logger.info(f"休息模式执行完成: {actions}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"休息模式执行失败: {e}")
+            result['success'] = False
+            result['error'] = str(e)
+            return result
+
+    def _execute_silent_mode(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        执行静音模式环境控制
+        
+        静音模式策略:
+        - 保持当前灯光设置
+        - 停止所有音乐播放
+        - 保持窗帘状态
+        - 激活蓝色光晕表示静音状态
+        """
+        try:
+            actions = []
+            
+            # 1. 保持灯光设置不变
+            logger.info("静音模式: 保持当前灯光设置")
+            actions.append("保持当前灯光设置")
+            
+            # 2. 停止音乐播放
+            logger.info("静音模式: 停止音乐播放")
+            self.music_player.stop_continuous_play()
+            self.music_state.is_playing = False
+            self.music_state.name = ""
+            actions.append("停止音乐播放")
+            
+            # 3. 保持窗帘状态不变
+            logger.info("静音模式: 保持窗帘状态")
+            actions.append("保持当前窗帘状态")
+            
+            # 4. 激活蓝色光晕表示静音状态
+            silent_color = (100, 149, 237)  # 柔和的蓝色RGB
+            if self.halo_controller.activate(silent_color):
+                logger.info("静音模式: 激活蓝色光晕")
+                self.halo_state.is_active = True
+                self.halo_state.color_rgb = silent_color
+                actions.append("激活蓝色静音提示光晕")
+            else:
+                logger.warning("静音模式: 光晕激活失败 (可能在冷却期)")
+                actions.append("光晕激活跳过 (冷却期)")
+            
+            result['actions_performed'] = actions
+            result['success'] = True
+            result['message'] = f"静音模式环境控制完成 ({len(actions)}个操作)"
+            logger.info(f"静音模式执行完成: {actions}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"静音模式执行失败: {e}")
+            result['success'] = False
+            result['error'] = str(e)
+            return result
+
+    def get_gesture_mode_info(self) -> Dict[str, Any]:
+        """
+        获取手势模式相关信息
+        
+        Returns:
+            Dict[str, Any]: 包含支持的手势模式和当前环境状态
+        """
+        return {
+            'supported_modes': {
+                'work_mode': {
+                    'description': '工作模式 - 专注环境设置',
+                    'trigger_gesture': 'ThumbUp',
+                    'actions': ['明亮白色灯光', '专注音乐', '打开窗帘', '停用光晕']
+                },
+                'rest_mode': {
+                    'description': '休息模式 - 放松环境设置', 
+                    'trigger_gesture': 'Palm',
+                    'actions': ['柔和暖色灯光', '放松音乐', '关闭窗帘', '温暖色光晕']
+                },
+                'silent_mode': {
+                    'description': '静音模式 - 停止音频播放',
+                    'trigger_gesture': 'Mute', 
+                    'actions': ['保持灯光', '停止音乐', '保持窗帘', '蓝色静音光晕']
+                },
+                'unknown_mode': {
+                    'description': '无特定操作的手势',
+                    'trigger_gesture': 'Victory/Okay/ThumbLeft/ThumbRight/Awesome',
+                    'actions': ['无操作']
+                }
+            },
+            'current_environment': self.get_current_environment_state(),
+            'cooldown_status': {
+                'global_environment_switch': not self.is_environment_switch_allowed()[0],
+                'global_cooldown_remaining': self.is_environment_switch_allowed()[1],
+                'music_switch': self.music_player.last_switch_time + 60 > time.time() if self.music_player.last_switch_time else False,
+                'halo_activation': self.halo_controller.last_activation_time + 30 > time.time() if self.halo_controller.last_activation_time else False
+            },
+            'environment_switch_status': self.get_environment_switch_status()
         }
 
     def cleanup(self):

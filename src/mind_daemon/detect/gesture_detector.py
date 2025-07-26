@@ -54,9 +54,83 @@ class EnhancedGestureDetector:
         self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitoring_thread.start()
         print("✅ 开始手势检测监控")
+        
+    def _monitoring_loop(self):
+        """手势监控循环."""
+        print("🔄 手势监控循环已启动")
+        
+        while self.is_monitoring:
+            try:
+                # 连接到Socket服务
+                if not self.socket_client.connect():
+                    print("❌ 无法连接到手势检测服务，3秒后重试...")
+                    time.sleep(3)
+                    continue
+                    
+                print("✅ Socket连接成功，等待手势数据...")
+                
+                # 等待手势数据
+                gesture_data = self.socket_client.wait_gesture()
+                
+                if gesture_data and 'gesture_id' in gesture_data:
+                    gesture_id = gesture_data['gesture_id']
+                    print(f"📡 接收到手势数据: ID={gesture_id}")
+                    
+                    if gesture_id in GESTURE_MAP:
+                        gesture_name = GESTURE_MAP[gesture_id]
+                        mode = MODE_GESTURES.get(gesture_name, "unknown_mode")
+                        
+                        print(f"🤚 识别手势: {gesture_name} -> {mode}")
+                        
+                        # 检查冷却时间
+                        current_time = time.time()
+                        if (current_time - self.last_gesture_time) > self.gesture_cooldown:
+                            self.last_gesture = gesture_name
+                            self.last_gesture_time = current_time
+                            
+                            if self.gesture_callback:
+                                print(f"🎯 执行手势回调: {gesture_name} -> {mode}")
+                                self.gesture_callback(gesture_name, mode)
+                            else:
+                                print("⚠️  没有设置手势回调函数")
+                        else:
+                            remaining = self.gesture_cooldown - (current_time - self.last_gesture_time)
+                            print(f"⏰ 手势 {gesture_name} 在冷却期内，剩余 {remaining:.1f}s")
+                    else:
+                        print(f"❓ 未知手势ID: {gesture_id}")
+                else:
+                    print("📡 等待手势数据...")
+                    time.sleep(1)
+                        
+            except Exception as e:
+                print(f"❌ 手势监控循环错误: {e}")
+                time.sleep(2)
+                
+        print("🛑 手势监控循环已退出")
+
+    def stop_monitoring(self):
+        """停止手势监控."""
+        if not self.is_monitoring:
+            print("⚠️  手势检测未在运行")
+            return
+            
+        print("🛑 正在停止手势检测监控...")
+        self.is_monitoring = False
+        
+        if self.monitoring_thread and self.monitoring_thread.is_alive():
+            self.monitoring_thread.join(timeout=5)
+            
+        # 断开Socket连接
+        try:
+            if self.socket_client:
+                self.socket_client.disconnect()
+        except Exception as e:
+            print(f"⚠️  断开Socket连接时出错: {e}")
+            
+        print("✅ 手势检测监控已停止")
 """Gesture detection using development board and camera - placeholder."""
 
-from config import SSHConfig, remote_config
+from .config import SSHConfig, remote_config
 
 import paramiko
 import time

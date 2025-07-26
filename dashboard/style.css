@@ -387,6 +387,114 @@ body {
     transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Gesture Recognition Card */
+.gesture-card .card-content {
+    padding: 20px;
+}
+
+.gesture-info {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.gesture-service {
+    padding: 15px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 8px;
+}
+
+.service-status {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.last-gesture {
+    padding: 15px;
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-radius: 8px;
+}
+
+.execution-result {
+    padding: 15px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+}
+
+/* Gesture status indicators */
+.status-running {
+    color: var(--success-color) !important;
+}
+
+.status-connected {
+    color: var(--warning-color) !important;
+}
+
+.status-disconnected {
+    color: var(--error-color) !important;
+}
+
+/* Gesture mode indicators */
+.gesture-mode-work_mode {
+    color: var(--success-color) !important;
+}
+
+.gesture-mode-silent_mode {
+    color: var(--warning-color) !important;
+}
+
+.gesture-mode-rest_mode {
+    color: var(--accent-color) !important;
+}
+
+.gesture-mode-unknown_mode {
+    color: var(--text-muted) !important;
+}
+
+/* Gesture execution status indicators */
+.execution-success {
+    color: var(--success-color) !important;
+}
+
+.execution-failed {
+    color: var(--error-color) !important;
+}
+
+.execution-none {
+    color: var(--text-muted) !important;
+}
+
+/* Status indicator variants for gesture recognition */
+.status-indicator.active {
+    background: var(--success-color);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+}
+
+.status-indicator.warning {
+    background: var(--warning-color);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+}
+
+.status-indicator.active::after,
+.status-indicator.warning::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    background: inherit;
+    filter: blur(4px);
+    opacity: 0.6;
+    z-index: -1;
+    animation: pulse 2s infinite;
+}
+
 /* Advanced Page Styles */
 .state-display {
     text-align: center;

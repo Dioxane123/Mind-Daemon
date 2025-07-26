@@ -139,6 +139,58 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Gesture Recognition Card -->
+                    <div class="card gesture-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-hand-paper"></i> 手势识别</h3>
+                            <div class="status-indicator" id="gesture-status"></div>
+                        </div>
+                        <div class="card-content">
+                            <div class="gesture-info">
+                                <div class="gesture-service">
+                                    <div class="service-status">
+                                        <div class="info-item">
+                                            <span class="label">服务状态:</span>
+                                            <span class="value" id="gesture-service-status">未连接</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span class="label">连接状态:</span>
+                                            <span class="value" id="gesture-connection-status">未连接</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="last-gesture">
+                                    <div class="info-item">
+                                        <span class="label">最新手势:</span>
+                                        <span class="value" id="last-gesture-name">无</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">对应模式:</span>
+                                        <span class="value" id="last-gesture-mode">无</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">置信度:</span>
+                                        <span class="value" id="last-gesture-confidence">0%</span>
+                                    </div>
+                                </div>
+                                <div class="execution-result">
+                                    <div class="info-item">
+                                        <span class="label">执行状态:</span>
+                                        <span class="value" id="gesture-execution-status">暂无执行</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">执行操作:</span>
+                                        <span class="value" id="gesture-execution-actions">无</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">执行时间:</span>
+                                        <span class="value" id="gesture-execution-time">无</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

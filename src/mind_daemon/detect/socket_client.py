@@ -1,6 +1,6 @@
 """Socket communication with main system - placeholder."""
 
-from config import remote_config
+from .config import remote_config
 
 import socket
 import json

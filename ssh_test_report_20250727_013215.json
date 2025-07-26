@@ -1,0 +1,137 @@
+{
+  "timestamp": "2025-07-27 01:32:15",
+  "config": {
+    "host": "172.20.10.2",
+    "port": 22,
+    "username": "root",
+    "script_path": "/root/service_manager.sh"
+  },
+  "results": {
+    "paramiko模块": {
+      "success": true,
+      "message": "可用",
+      "details": "",
+      "timestamp": 3.2901763916015625e-05
+    },
+    "socket模块": {
+      "success": true,
+      "message": "可用",
+      "details": "",
+      "timestamp": 3.719329833984375e-05
+    },
+    "subprocess模块": {
+      "success": true,
+      "message": "可用",
+      "details": "",
+      "timestamp": 4.00543212890625e-05
+    },
+    "配置文件": {
+      "success": true,
+      "message": "配置完整",
+      "details": "",
+      "timestamp": 4.291534423828125e-05
+    },
+    "Ping测试": {
+      "success": true,
+      "message": "主机 172.20.10.2 可达",
+      "details": "",
+      "timestamp": 2.025207996368408
+    },
+    "端口连通性": {
+      "success": true,
+      "message": "端口 22 开放 (连接时间: 0.03s)",
+      "details": "",
+      "timestamp": 2.0540919303894043
+    },
+    "SSH认证": {
+      "success": false,
+      "message": "连接异常: module 'paramiko' has no attribute 'AutoAddHostPolicy'",
+      "details": "",
+      "timestamp": 2.0545361042022705
+    },
+    "命令: whoami": {
+      "success": true,
+      "message": "root",
+      "details": "",
+      "timestamp": 3.1196720600128174
+    },
+    "命令: pwd": {
+      "success": true,
+      "message": "/root",
+      "details": "",
+      "timestamp": 3.2252910137176514
+    },
+    "命令: date": {
+      "success": true,
+      "message": "Sun Jul 27 01:32:11 AM CST 2025",
+      "details": "",
+      "timestamp": 3.395440101623535
+    },
+    "命令: uptime": {
+      "success": true,
+      "message": "01:32:11 up  7:40,  2 users,  load average: 1.51, 1.44, 1.48",
+      "details": "",
+      "timestamp": 3.518899917602539
+    },
+    "命令: free -h": {
+      "success": true,
+      "message": "total        used        free      shared  buff/cache   available\nMem:           6.9Gi       830Mi  ",
+      "details": "",
+      "timestamp": 3.660862922668457
+    },
+    "命令: df -h /": {
+      "success": true,
+      "message": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/root        29G  9.0G   19G  33% /",
+      "details": "",
+      "timestamp": 3.8740551471710205
+    },
+    "服务脚本": {
+      "success": true,
+      "message": "脚本存在: -rwxr-xr-x 1 root root 8687 Jul 25 20:12 /root/service_manager.sh",
+      "details": "",
+      "timestamp": 4.914974212646484
+    },
+    "服务: ssh": {
+      "success": true,
+      "message": "状态: active",
+      "details": "",
+      "timestamp": 5.138721942901611
+    },
+    "服务: sshd": {
+      "success": true,
+      "message": "状态: active",
+      "details": "",
+      "timestamp": 5.342210054397583
+    },
+    "服务: network": {
+      "success": false,
+      "message": "状态: inactive\nunknown",
+      "details": "",
+      "timestamp": 5.54095196723938
+    },
+    "网络接口": {
+      "success": true,
+      "message": "网络接口正常",
+      "details": "",
+      "timestamp": 5.676297187805176
+    },
+    "连接延迟": {
+      "success": true,
+      "message": "平均: 129.97ms, 最小: 107.58ms, 最大: 163.56ms",
+      "details": "",
+      "timestamp": 7.241214275360107
+    },
+    "数据传输": {
+      "success": true,
+      "message": "1KB传输时间: 0.189s, 吞吐量: 5288.38 bytes/s",
+      "details": "",
+      "timestamp": 7.430419206619263
+    }
+  },
+  "summary": {
+    "total_tests": 20,
+    "passed": 18,
+    "failed": 2,
+    "duration": 7.4310572147369385
+  }
+}
