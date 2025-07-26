@@ -259,6 +259,12 @@ uv run mind-daemon
 # 测试MiniMax API连接
 python test_minimax_api.py
 
+# 测试光晕效果
+python test_halo_effects.py
+
+# 查看光晕效果演示页面
+open test_halo_effects_demo.html
+
 # 运行完整测试套件
 uv run python tests/test_system.py
 ```
@@ -314,6 +320,31 @@ music/
 - 30秒激活冷却时间
 - 15秒颜色变化冷却时间
 - 心理学颜色原理指导
+
+**光晕测试:**
+```bash
+# 交互式光晕测试
+python test_halo_effects.py
+
+# 快速颜色序列测试
+python test_halo_effects.py sequence
+
+# 压力场景测试
+python test_halo_effects.py stress
+
+# 专注场景测试
+python test_halo_effects.py focus
+
+# 放松场景测试
+python test_halo_effects.py relax
+
+# 完整测试套件
+python test_halo_effects.py all
+```
+
+**支持的光晕颜色:**
+- 基础颜色：红、绿、蓝、紫、橙、粉、黄、青、白
+- 情境颜色：暖白、冷蓝、柔绿、夕阳橙、薰衣草、薄荷绿
 
 ## 🤖 AI智能决策
 

@@ -101,11 +101,7 @@ http_server.log
 # =========================
 # Legacy 目录（已废弃）
 # =========================
-Agent/
-BCI/
 MCP_for_Agent/
-peripheral/
-utils/
 python_demo/
 python/
 
@@ -152,3 +148,5 @@ site/
 verify_llm_usage.py
 test_minimax_api.py
 minimax_sdk_example.py
+test_halo_effects.py
+test_halo_effects_demo.html
